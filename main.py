@@ -2,7 +2,7 @@ from tkinter import *
 from tkinter import ttk
 
 from Components.top_header import Header
-
+from Components.ribbon import Ribbon
 
 
 DEFAULT_WIDTH = 1536
@@ -19,6 +19,9 @@ class PhotoEditorApp:
         self.Header = Header(self)
         self.place_component(self.Header, 1, 1, 1520, 45)
 
+        self.Ribbon = Ribbon(self)
+        self.place_component(self.Ribbon, 1, 50, 1520, 180)
+        
 
 
 
@@ -36,6 +39,12 @@ class PhotoEditorApp:
     def place_component(self, widget, x, y, w, h, **kwargs):
         widget.place(x=int(x*self.ratioW), y=int(y*self.ratioH), w=int(w*self.ratioW), h=int(h*self.ratioH), **kwargs)
 
+    def scale_x(self, x):
+        return int(x*self.ratioW)
+
+    def scale_y(self, y):
+            return int(y*self.ratioH)
+    
     def adjust_font(self, font, font_name="times", bold=False):
         fontstr = f"{font_name} {int(font*self.ratioH)}"
         if bold:

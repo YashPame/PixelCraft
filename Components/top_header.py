@@ -5,9 +5,8 @@ class Header(Frame):
         super().__init__(App.root)
 
         self.App = App
-        self.config(bg="red")
 
-        heading = Label(self, text="Photo Editing Application", font=self.App.adjust_font(12, bold=True), bd=3, relief=RIDGE)
+        heading = Label(self, text="Photo Editing Application", font=self.App.adjust_font(14, bold=True), bd=3, relief=RIDGE)
         self.App.place_component(heading, 5, 5, 1430, 35)
 
         minimize_button = Button(self, text="-", font=self.App.adjust_font(12, bold=True), relief=RIDGE, bd=3, command=self.Minimize)
