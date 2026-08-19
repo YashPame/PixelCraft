@@ -1,21 +1,20 @@
 from tkinter import *
-from Components.base_component import BaseComponent
-from utils import *
 
-class Header(BaseComponent):
+class Header(Frame):
     def __init__(self, App):
-        super().__init__(App)
+        super().__init__(App.root)
 
+        self.App = App
         self.config(bg="red")
 
-        heading = Label(self, text="Photo Editing Application", font=self.adjust_font(12, bold=True), bd=3, relief=RIDGE)
-        self.place_component(heading, 5, 5, 1400, 50)
+        heading = Label(self, text="Photo Editing Application", font=self.App.adjust_font(12, bold=True), bd=3, relief=RIDGE)
+        self.App.place_component(heading, 5, 5, 1430, 35)
 
-        minimize_button = Button(self, text="-", font=self.adjust_font(12, bold=True), relief=RIDGE, bd=3, command=self.Minimize)
-        self.place_component(minimize_button, 1410, 5, 50, 50)
+        minimize_button = Button(self, text="-", font=self.App.adjust_font(12, bold=True), relief=RIDGE, bd=3, command=self.Minimize)
+        self.App.place_component(minimize_button, 1440, 5, 35, 35)
         
-        close_button = Button(self, text="X", font=self.adjust_font(12, bold=True), relief=RIDGE, bd=3, command=self.Exit)
-        self.place_component(close_button, 1465, 5, 50, 50)
+        close_button = Button(self, text="X", font=self.App.adjust_font(12, bold=True), relief=RIDGE, bd=3, command=self.Exit)
+        self.App.place_component(close_button, 1480, 5, 35, 35)
     
     def Exit(self):
         self.App.root.destroy()

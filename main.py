@@ -1,5 +1,10 @@
 from tkinter import *
+from tkinter import ttk
+
 from Components.top_header import Header
+
+
+
 DEFAULT_WIDTH = 1536
 DEFAULT_HEIGHT = 864
 
@@ -12,7 +17,13 @@ class PhotoEditorApp:
         self.root.attributes('-fullscreen', True)
 
         self.Header = Header(self)
-        self.Header.place_component(self.Header, 1, 1, 1520, 60)
+        self.place_component(self.Header, 1, 1, 1520, 45)
+
+
+
+
+
+
 
     def setRatio(self):
         screen_width = self.root.winfo_screenwidth()
@@ -21,6 +32,17 @@ class PhotoEditorApp:
         ratioW = DEFAULT_WIDTH / screen_width
         ratioH = DEFAULT_HEIGHT / screen_height
         return ratioW, ratioH
+    
+    def place_component(self, widget, x, y, w, h, **kwargs):
+        widget.place(x=int(x*self.ratioW), y=int(y*self.ratioH), w=int(w*self.ratioW), h=int(h*self.ratioH), **kwargs)
+
+    def adjust_font(self, font, font_name="times", bold=False):
+        fontstr = f"{font_name} {int(font*self.ratioH)}"
+        if bold:
+            fontstr+=" bold"
+        return fontstr
+    
+    
         
     
 if __name__ == '__main__':
