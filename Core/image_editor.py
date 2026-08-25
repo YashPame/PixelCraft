@@ -45,8 +45,8 @@ class Editor:
         pil_image = Image.fromarray(rgb_image)
 
         if self.active_image.zoom != 1.0:
-            width = int(pil_image.width*self.active_image.zoom)
-            height = int(pil_image.height*self.active_image.zoom)
+            width = int(pil_image.width * self.active_image.zoom)
+            height = int(pil_image.height * self.active_image.zoom)
             pil_image = pil_image.resize((width, height))
 
         photo = ImageTk.PhotoImage(pil_image)
@@ -55,12 +55,32 @@ class Editor:
 
         self.canvas.delete("all")
 
+        # Make sure Tkinter has calculated the actual canvas size
+        self.canvas.update_idletasks()
+
+        canvas_width = self.canvas.winfo_width()
+        canvas_height = self.canvas.winfo_height()
+
+        image_width = pil_image.width
+        image_height = pil_image.height
+
+        # Center small images
+        x = max((canvas_width - image_width) // 2, 0)
+        y = max((canvas_height - image_height) // 2, 0)
+
         self.canvas_image_id = self.canvas.create_image(
-            0,0,anchor="nw",image=photo
+            x,
+            y,
+            anchor="nw",
+            image=photo
         )
 
+        # Calculate scrollable area
+        scroll_width = max(canvas_width, x + image_width)
+        scroll_height = max(canvas_height, y + image_height)
+
         self.canvas.configure(
-            scrollregion=self.canvas.bbox("all")
+            scrollregion=(0, 0, scroll_width, scroll_height)
         )
 
         self.canvas.update_idletasks()

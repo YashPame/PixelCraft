@@ -16,7 +16,7 @@ class Ribbon(Frame):
 
         self.Notebook = ttk.Notebook(self, style="Ribbon.TNotebook")
 
-        self.App.place_component(self.Notebook, 0, 0, 1520, 150)
+        self.App.place_component(self.Notebook, 0, 0, 1520, 145)
 
         self.HomeTab = RibbonHome(self.App, self.Notebook)
         self.HelpTab = RibbonHelp(self.App, self.Notebook)
