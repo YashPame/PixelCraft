@@ -16,3 +16,7 @@ class UIIconsLoader():
         self.App.IconImage_Eraser = ImageTk.PhotoImage(Image.open("Icons/eraser.png").resize((30, 30), Image.Resampling.LANCZOS))
         self.App.IconImage_Pencil = ImageTk.PhotoImage(Image.open("Icons/pencil.png").resize((30, 30), Image.Resampling.LANCZOS))
 
+        self.App.IconImage_Undo = ImageTk.PhotoImage(Image.open("Icons/undo.png").resize((20, 20), Image.Resampling.LANCZOS))
+        self.App.IconImage_Redo = ImageTk.PhotoImage(Image.open("Icons/redo.png").resize((20, 20), Image.Resampling.LANCZOS))
+        self.App.IconImage_ZoomIn = ImageTk.PhotoImage(Image.open("Icons/zoom_in.png").resize((20, 20), Image.Resampling.LANCZOS))
+        self.App.IconImage_ZoomOut = ImageTk.PhotoImage(Image.open("Icons/zoom_out.png").resize((20, 20), Image.Resampling.LANCZOS))

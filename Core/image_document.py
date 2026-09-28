@@ -1,6 +1,11 @@
 from PIL import Image
 import os
 import cv2
+from tkinter import DoubleVar
+
+CANVAS_WIDTH = 620
+CANVAS_HEIGHT = 620
+MAX_HISTORY = 20
 
 class ImageDocument:
     def __init__(self, file_path):
@@ -15,7 +20,8 @@ class ImageDocument:
         self.undo_stack = []
         self.redo_stack = []
 
-        self.zoom = 1.0
+        self.zoom = DoubleVar()
+        self.zoom.set(1.0)
 
         self.modified = False
         

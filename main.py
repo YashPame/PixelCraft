@@ -38,7 +38,7 @@ class PhotoEditorApp:
 
     def UpdateButtons(self, *args):
         if self.hasImage.get():
-            self.place_component(self.canvas_frame, 1,250, 1000, 500)
+            self.place_component(self.canvas_frame, 1520/2-325, 150, 650, 650)
         else:
             self.canvas_frame.place_forget()
         
