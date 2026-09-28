@@ -1,5 +1,5 @@
 import cv2
-
+from tkinter import *
 from tkinter import filedialog
 from PIL import Image, ImageTk
 
@@ -7,9 +7,9 @@ from Core.image_document import ImageDocument
 from tkinter import messagebox
 
 class Editor:
-    def __init__(self, canvas):
+    def __init__(self, App, canvas):
         self.canvas = canvas
-        self.images = []
+        self.App = App
         self.active_image = None
         self.canvas_image_id = None
 
@@ -28,8 +28,8 @@ class Editor:
         except:
             messagebox.showerror("Error", "Something Went Wrong, Unable to open File...")
 
-        self.images.append(image)
         self.active_image=image
+        self.App.hasImage.set(True)
 
         self.ShowImage()
 

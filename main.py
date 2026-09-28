@@ -4,9 +4,11 @@ from tkinter import ttk
 from Components.top_header import Header
 from Components.editor_canvas import EditorCanvas
 
-from Components.ribbon import Ribbon
-
 from Core.image_editor import Editor
+from Components.action_bar import ActionBar
+
+from Components.ui_icons_loader import UIIconsLoader
+from Components.variables import Variables
 
 DEFAULT_WIDTH = 1536
 DEFAULT_HEIGHT = 864
@@ -19,16 +21,26 @@ class PhotoEditorApp:
         self.root.config(bd=7, relief=SOLID)
         self.root.attributes('-fullscreen', True)
 
-        self.Header = Header(self)
-        self.place_component(self.Header, 1, 1, 1520, 45)
+        self.ui_icon_loader = UIIconsLoader(self)
+        self.variables = Variables(self)
+
+        self.editor = None
+
+        
+        self.header = Header(self)
+        self.place_component(self.header, 1, 1, 1520, 45)
 
         self.canvas_frame = EditorCanvas(self)
-        self.place_component(self.canvas_frame, 1,250, 1000, 500)
-        
-        
-        self.Ribbon = Ribbon(self)
-        self.place_component(self.Ribbon, 1, 50, 1520, 180)
+        self.hasImage.trace_add("write", self.UpdateButtons)
 
+        self.action_bar = ActionBar(self)
+        self.place_component(self.action_bar, 1, 50, 1520, 105)
+
+    def UpdateButtons(self, *args):
+        if self.hasImage.get():
+            self.place_component(self.canvas_frame, 1,250, 1000, 500)
+        else:
+            self.canvas_frame.place_forget()
         
 
 

@@ -34,5 +34,5 @@ class EditorCanvas(Frame):
         self.grid_columnconfigure(0, weight=1)
 
 
-        self.App.editor = Editor(self.canvas)
+        self.App.editor = Editor(App, self.canvas)
     
