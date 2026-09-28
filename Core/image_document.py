@@ -1,7 +1,7 @@
 from PIL import Image
 import os
 import cv2
-from tkinter import DoubleVar
+from tkinter import DoubleVar, StringVar
 
 CANVAS_WIDTH = 620
 CANVAS_HEIGHT = 620
@@ -22,6 +22,8 @@ class ImageDocument:
 
         self.zoom = DoubleVar()
         self.zoom.set(1.0)
+        self.zoom_percentage = StringVar()
+        self.zoom_percentage.set("100.0%")
 
         self.modified = False
         

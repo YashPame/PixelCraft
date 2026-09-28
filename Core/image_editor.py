@@ -8,6 +8,10 @@ from tkinter import messagebox
 
 CANVAS_WIDTH = 620
 CANVAS_HEIGHT = 620
+MAX_HISTORY = 20
+MAX_ZOOM = 10.0
+MIN_ZOOM = 0.20
+ZOOM_STEP = 0.05
 
 class Editor:
     def __init__(self, App, canvas):
@@ -32,6 +36,7 @@ class Editor:
             messagebox.showerror("Error", "Something Went Wrong, Unable to open File...")
 
         self.active_image=image
+        self.SetInitialZoom()
         self.App.hasImage.set(True)
 
         self.ShowImage()
@@ -49,16 +54,11 @@ class Editor:
         image_width = pil_image.width
         image_height = pil_image.height
 
-        if image_width > CANVAS_WIDTH or image_height > CANVAS_HEIGHT:
-            width_ratio = CANVAS_WIDTH / image_width
-            height_ratio = CANVAS_HEIGHT / image_height
-            self.active_image.zoom = min(width_ratio, height_ratio)
-        else:
-            self.active_image.zoom = 1.0
+        zoom = self.active_image.zoom.get()
 
-        if self.active_image.zoom != 1.0:
-            width = int(image_width * self.active_image.zoom)
-            height = int(image_height * self.active_image.zoom)
+        if zoom != 1.0:
+            width = int(image_width * zoom)
+            height = int(image_height * zoom)
             pil_image = pil_image.resize((width, height))
 
         photo = ImageTk.PhotoImage(pil_image)
@@ -80,4 +80,111 @@ class Editor:
         scroll_height = max(canvas_height, y + image_height)
 
         self.canvas.configure(scrollregion=(0, 0, scroll_width, scroll_height))
-        print("Image displayed")
+        print("Image displayed", self.active_image.file_name, "Zoom:", self.active_image.zoom.get())
+
+    def SetInitialZoom(self):
+        image = self.active_image.image
+
+        image_height, image_width = image.shape[:2]
+
+        if image_width > CANVAS_WIDTH or image_height > CANVAS_HEIGHT:
+            width_ratio = CANVAS_WIDTH / image_width
+            height_ratio = CANVAS_HEIGHT / image_height
+            zoom = min(width_ratio, height_ratio)
+        else:
+            zoom = 1.0
+
+        self.active_image.initial_zoom = zoom
+        self.active_image.zoom.set(zoom)
+        self.active_image.zoom_percentage.set(f"{round(self.active_image.zoom.get() * 100, 2)}%")
+
+    def GetState(self):
+        return {
+            "image": self.active_image.image.copy(),
+            "zoom": self.active_image.zoom.get()
+        }
+
+    def SaveState(self):
+        state = self.GetState()
+
+        self.active_image.undo_stack.append(state)
+
+        if len(self.active_image.undo_stack) > MAX_HISTORY:
+            self.active_image.undo_stack.pop(0)
+
+        self.active_image.redo_stack.clear()
+
+    def ZoomIn(self):
+        if self.active_image is None:
+            return
+        zoom = self.active_image.zoom.get()
+        if zoom >= MAX_ZOOM:
+            return
+        self.SaveState()
+        zoom = min(zoom + ZOOM_STEP, MAX_ZOOM)
+        self.active_image.zoom.set(zoom)
+        self.active_image.zoom_percentage.set(f"{round(zoom * 100, 2)}%")
+        self.ShowImage()
+
+    def ZoomOut(self):
+        if self.active_image is None:
+            return
+        zoom = self.active_image.zoom.get()
+        if zoom <= MIN_ZOOM:
+            return
+        self.SaveState()
+        zoom = max(zoom - ZOOM_STEP, MIN_ZOOM)
+        self.active_image.zoom.set(zoom)
+        self.active_image.zoom_percentage.set(f"{round(zoom * 100, 2)}%")
+        self.ShowImage()
+
+    def Undo(self):
+        if self.active_image is None:
+            return
+
+        if not self.active_image.undo_stack:
+            return
+
+        self.active_image.redo_stack.append(self.GetState())
+
+        state = self.active_image.undo_stack.pop()
+
+        self.active_image.image = state["image"]
+        self.active_image.zoom.set(state["zoom"])
+        self.active_image.zoom_percentage.set(f"{round(self.active_image.zoom.get() * 100, 2)}%")
+
+        self.ShowImage()
+
+    def Redo(self):
+        if self.active_image is None:
+            return
+
+        if not self.active_image.redo_stack:
+            return
+
+        self.active_image.undo_stack.append(self.GetState())
+
+        state = self.active_image.redo_stack.pop()
+
+        self.active_image.image = state["image"]
+        self.active_image.zoom.set(state["zoom"])
+        self.active_image.zoom_percentage.set(f"{round(self.active_image.zoom.get() * 100, 2)}%")
+
+        self.ShowImage()
+
+    def Reset(self):
+        if self.active_image is None:
+            return
+
+        self.SaveState()
+
+        self.active_image.image = self.active_image.orignal_image.copy()
+        self.active_image.zoom.set(self.active_image.initial_zoom)
+        self.active_image.zoom_percentage.set(f"{round(self.active_image.zoom.get() * 100, 2)}%")
+
+        self.active_image.modified = False
+
+        self.active_image.undo_stack.clear()
+        self.active_image.redo_stack.clear()
+
+        self.ShowImage()

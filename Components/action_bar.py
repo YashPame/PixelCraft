@@ -43,25 +43,25 @@ class ActionBar(Frame):
 
 
             left_options_frame = Frame(self.CoreTitleButtons, bd=1, relief=SOLID)
-            self.App.place_component(left_options_frame, 50, 15, 345, 50)
+            self.App.place_component(left_options_frame, 50, 15, 355, 50)
 
-            zoom_in_button = Button(left_options_frame, image=self.App.IconImage_ZoomIn, font=self.App.adjust_font(20, bold=True), relief=RAISED, bd=1)
-            zoom_out_button = Button(left_options_frame, image=self.App.IconImage_ZoomOut, font=self.App.adjust_font(20, bold=True), relief=RAISED, bd=1)
-            zoom_percentage_label = Label(left_options_frame, text="100%", font=self.App.adjust_font(12, bold=True), bg="SYSTEMBUTTONFACE")
-
+            zoom_in_button = Button(left_options_frame, image=self.App.IconImage_ZoomIn, font=self.App.adjust_font(20, bold=True), relief=RAISED, bd=1, command=self.Editor.ZoomIn)
+            zoom_out_button = Button(left_options_frame, image=self.App.IconImage_ZoomOut, font=self.App.adjust_font(20, bold=True), relief=RAISED, bd=1, command=self.Editor.ZoomOut)
+            zoom_percentage_label = Label(left_options_frame, textvariable=self.Editor.active_image.zoom_percentage, font=self.App.adjust_font(12, bold=True), bg="SYSTEMBUTTONFACE")
             seperator1 = Frame(left_options_frame, bg="black")
 
-            reset_button = Button(left_options_frame, text="Reset", font=self.App.adjust_font(12, bold=True), relief=RAISED, bd=1)
-            undo_button = Button(left_options_frame, image=self.App.IconImage_Undo, font=self.App.adjust_font(12, bold=True), relief=RAISED, bd=1)
-            redo_button = Button(left_options_frame, image=self.App.IconImage_Redo, font=self.App.adjust_font(12, bold=True), relief=RAISED, bd=1)
+
+            reset_button = Button(left_options_frame, text="Reset", font=self.App.adjust_font(12, bold=True), relief=RAISED, bd=1, command=self.Editor.Reset)
+            undo_button = Button(left_options_frame, image=self.App.IconImage_Undo, font=self.App.adjust_font(12, bold=True), relief=RAISED, bd=1, command=self.Editor.Undo)
+            redo_button = Button(left_options_frame, image=self.App.IconImage_Redo, font=self.App.adjust_font(12, bold=True), relief=RAISED, bd=1, command=self.Editor.Redo)
 
             self.App.place_component(zoom_in_button, 10, 10, 30, 30)
             self.App.place_component(zoom_out_button, 50, 10, 30, 30)
-            self.App.place_component(zoom_percentage_label, 90, 10, 50, 30)  
-            self.App.place_component(seperator1, 150, 10, 2, 30)
-            self.App.place_component(reset_button, 160, 10, 50, 30)
-            self.App.place_component(undo_button, 220, 10, 50, 30)
-            self.App.place_component(redo_button, 280, 10, 50, 30)
+            self.App.place_component(zoom_percentage_label, 90, 10, 60, 30)  
+            self.App.place_component(seperator1, 160, 10, 2, 30)
+            self.App.place_component(reset_button, 170, 10, 50, 30)
+            self.App.place_component(undo_button, 230, 10, 50, 30)
+            self.App.place_component(redo_button, 290, 10, 50, 30)
             
 
 
