@@ -188,3 +188,7 @@ class Editor:
         self.active_image.redo_stack.clear()
 
         self.ShowImage()
+
+    def LightAdjustment(self, parameter, value):
+        pass
+    

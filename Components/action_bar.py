@@ -2,7 +2,12 @@ from tkinter import *
 from tkinter import ttk
 from PIL import Image, ImageTk
 from tkinter import filedialog
-
+from Components.Panels.crop_panel import CropPanel
+from Components.Panels.light_panel import LightPanel
+from Components.Panels.drawing_panels import DrawingPanel
+from Components.Panels.eraser_panel import EraserPanel
+from Components.Panels.ai_panel import AIPanel
+from Components.Panels.filters_panel import FiltersPanel
 
 class ActionBar(Frame):
     def __init__(self, App):
@@ -27,20 +32,19 @@ class ActionBar(Frame):
             self.App.place_component(open_img_label, 1520/2-50, 65, 100, 50)
 
         else:
-            crop_button = Button(self.CoreTitleButtons, image=self.App.IconImage_Crop, font=self.App.adjust_font(10, bold=True), relief=RAISED, bd=1)
-            brightness_button = Button(self.CoreTitleButtons, image=self.App.IconImage_Brightenss, font=self.App.adjust_font(10, bold=True), relief=RAISED, bd=1)
-            brush_button = Button(self.CoreTitleButtons, image=self.App.IconImage_Brush, font=self.App.adjust_font(10, bold=True), relief=RAISED, bd=1)
-            pencil_button = Button(self.CoreTitleButtons, image=self.App.IconImage_Pencil, font=self.App.adjust_font(10, bold=True), relief=RAISED, bd=1)
-            eraser_button = Button(self.CoreTitleButtons, image=self.App.IconImage_Eraser, font=self.App.adjust_font(10, bold=True), relief=RAISED, bd=1)
-            ai_features_button = Button(self.CoreTitleButtons, image=self.App.IconImage_AIFeatures, font=self.App.adjust_font(10, bold=True), relief=RAISED, bd=1)
+            self.crop_button = Button(self.CoreTitleButtons, image=self.App.IconImage_Crop, font=self.App.adjust_font(10, bold=True), relief=RAISED, bd=1, command=lambda: self.TopButtonClicked("Crop"))
+            self.brightness_button = Button(self.CoreTitleButtons, image=self.App.IconImage_Brightenss, font=self.App.adjust_font(10, bold=True), relief=RAISED, bd=1, command=lambda: self.TopButtonClicked("Brightness"))
+            self.brush_button = Button(self.CoreTitleButtons, image=self.App.IconImage_Brush, font=self.App.adjust_font(10, bold=True), relief=RAISED, bd=1, command=lambda: self.TopButtonClicked("Brush"))
+            self.pencil_button = Button(self.CoreTitleButtons, image=self.App.IconImage_Pencil, font=self.App.adjust_font(10, bold=True), relief=RAISED, bd=1, command=lambda: self.TopButtonClicked("Pencil"))
+            self.eraser_button = Button(self.CoreTitleButtons, image=self.App.IconImage_Eraser, font=self.App.adjust_font(10, bold=True), relief=RAISED, bd=1, command=lambda: self.TopButtonClicked("Eraser"))
+            self.ai_features_button = Button(self.CoreTitleButtons, image=self.App.IconImage_AIFeatures, font=self.App.adjust_font(10, bold=True), relief=RAISED, bd=1, command=lambda: self.TopButtonClicked("AI Features"))
 
-            self.App.place_component(crop_button, 1520/2-150, 15, 50, 50)
-            self.App.place_component(brightness_button, 1520/2-90, 15, 50, 50)
-            self.App.place_component(brush_button, 1520/2-30, 15, 50, 50)
-            self.App.place_component(pencil_button, 1520/2+30, 15, 50, 50)
-            self.App.place_component(eraser_button, 1520/2+90, 15, 50, 50)
-            self.App.place_component(ai_features_button, 1520/2+150, 15, 50, 50)
-
+            self.App.place_component(self.crop_button, 1520/2-150, 15, 50, 50)
+            self.App.place_component(self.brightness_button, 1520/2-90, 15, 50, 50)
+            self.App.place_component(self.brush_button, 1520/2-30, 15, 50, 50)
+            self.App.place_component(self.pencil_button, 1520/2+30, 15, 50, 50)
+            self.App.place_component(self.eraser_button, 1520/2+90, 15, 50, 50)
+            self.App.place_component(self.ai_features_button, 1520/2+150, 15, 50, 50)
 
             left_options_frame = Frame(self.CoreTitleButtons, bd=1, relief=SOLID)
             self.App.place_component(left_options_frame, 50, 15, 355, 50)
@@ -49,7 +53,6 @@ class ActionBar(Frame):
             zoom_out_button = Button(left_options_frame, image=self.App.IconImage_ZoomOut, font=self.App.adjust_font(20, bold=True), relief=RAISED, bd=1, command=self.Editor.ZoomOut)
             zoom_percentage_label = Label(left_options_frame, textvariable=self.Editor.active_image.zoom_percentage, font=self.App.adjust_font(12, bold=True), bg="SYSTEMBUTTONFACE")
             seperator1 = Frame(left_options_frame, bg="black")
-
 
             reset_button = Button(left_options_frame, text="Reset", font=self.App.adjust_font(12, bold=True), relief=RAISED, bd=1, command=self.Editor.Reset)
             undo_button = Button(left_options_frame, image=self.App.IconImage_Undo, font=self.App.adjust_font(12, bold=True), relief=RAISED, bd=1, command=self.Editor.Undo)
@@ -63,8 +66,6 @@ class ActionBar(Frame):
             self.App.place_component(undo_button, 230, 10, 50, 30)
             self.App.place_component(redo_button, 290, 10, 50, 30)
             
-
-
             right_options_frame = Frame(self.CoreTitleButtons)
             self.App.place_component(right_options_frame, 1520-250, 15, 200, 50)
 
@@ -73,6 +74,58 @@ class ActionBar(Frame):
 
             self.App.place_component(save_button, 10, 5, 100, 40)
             self.App.place_component(cancel_button, 120, 5, 70, 40)
+
+    def TopButtonClicked(self, button_name):
+        current_button = self.App.activeTopButton.get()
+
+        buttons = {
+            "Crop": self.crop_button,
+            "Brightness": self.brightness_button,
+            "Brush": self.brush_button,
+            "Pencil": self.pencil_button,
+            "Eraser": self.eraser_button,
+            "AI Features": self.ai_features_button
+        }
+
+        if current_button == button_name:
+            buttons[current_button].config(bg="SystemButtonFace", highlightbackground="black", relief=RAISED)
+            self.App.activeTopButton.set("None")
+
+            if hasattr(self, 'PanelsFrame') and self.PanelsFrame:
+                self.PanelsFrame.destroy()
+                self.PanelsFrame = None
+            self.App.canvas_frame.place_configure(x=1520/2-325, y=150)
+            return
+
+        if current_button != "None":
+            buttons[current_button].config(bg="SystemButtonFace", highlightbackground="black", relief=RAISED)
+
+        buttons[button_name].config(bg="yellow", highlightbackground="black", relief=RAISED)
+
+        if hasattr(self, 'PanelsFrame') and self.PanelsFrame:
+            self.PanelsFrame.destroy()
+
+        self.App.canvas_frame.place_configure(x=1520/2-650, y=150)
+
+        self.PanelsFrame = Frame(self.App.root, bd=1, relief=SOLID, bg="red")
+        self.App.place_component(self.PanelsFrame, 1000, 150, 420, 650)
+
+        if button_name == "Crop":
+            self.Panel = CropPanel(self.App, self.PanelsFrame)
+        elif button_name == "Brightness":
+            self.Panel = LightPanel(self.App, self.PanelsFrame)
+        elif button_name == "Brush" or button_name == "Pencil":
+            self.Panel = DrawingPanel(self.App, self.PanelsFrame)
+        elif button_name == "Eraser":
+            self.Panel = EraserPanel(self.App, self.PanelsFrame)
+        elif button_name == "AI Features":
+            self.Panel = AIPanel(self.App, self.PanelsFrame)
+        elif button_name == "Filters":
+            self.Panel = FiltersPanel(self.App, self.PanelsFrame)
+        self.Panel.pack(fill=BOTH, expand=True)
+
+        self.App.activeTopButton.set(button_name)
+    
 
 
     def UpdateButtons(self, *args):

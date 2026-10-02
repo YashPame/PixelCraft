@@ -33,10 +33,15 @@ class PhotoEditorApp:
         self.canvas_frame = EditorCanvas(self)
         self.hasImage.trace_add("write", self.UpdateButtons)
 
+        self.PanelsFrame = Frame(self.root, bd=1, relief=SOLID, bg="red")
+        # self.place_component(self.PanelsFrame, 1100, 150, 320, 650)
+
+
         self.action_bar = ActionBar(self)
         self.place_component(self.action_bar, 1, 50, 1520, 105)
 
     def UpdateButtons(self, *args):
+        self.PanelsFrame.place_forget()
         if self.hasImage.get():
             self.place_component(self.canvas_frame, 1520/2-325, 150, 650, 650)
         else:
@@ -57,7 +62,9 @@ class PhotoEditorApp:
     
     def place_component(self, widget, x, y, w, h, **kwargs):
         widget.place(x=int(x*self.ratioW), y=int(y*self.ratioH), w=int(w*self.ratioW), h=int(h*self.ratioH), **kwargs)
-
+    def place_configure(self, widget, x, y):
+        widget.place_configure(x=int(x*self.ratioW), y=int(y*self.ratioH))
+        
     def scale_x(self, x):
         return int(x*self.ratioW)
 

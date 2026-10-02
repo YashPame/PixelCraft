@@ -9,5 +9,7 @@ class Variables():
 
         self.App.hasImage = BooleanVar()
         self.App.hasImage.set(False)
-        
+
+        self.App.activeTopButton = StringVar()
+        self.App.activeTopButton.set("None")
         
