@@ -16,6 +16,7 @@ class ImageDocument:
         self.orignal_image = cv2.imread(file_path, cv2.IMREAD_UNCHANGED)
 
         self.image = self.orignal_image.copy()
+        self.base_image = self.orignal_image.copy() 
 
         self.undo_stack = []
         self.redo_stack = []
@@ -26,4 +27,5 @@ class ImageDocument:
         self.zoom_percentage.set("100.0%")
 
         self.modified = False
+        self.adjustments = {}
         
