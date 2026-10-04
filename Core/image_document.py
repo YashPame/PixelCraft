@@ -28,4 +28,9 @@ class ImageDocument:
 
         self.modified = False
         self.adjustments = {}
+
+        self.straighten_source = None   
+        self.straighten_angle = 0
+
+        self.filter_name = "Original"
         

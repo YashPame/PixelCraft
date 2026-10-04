@@ -34,14 +34,15 @@ class ActionBar(Frame):
         else:
             self.crop_button = Button(self.CoreTitleButtons, image=self.App.IconImage_Crop, font=self.App.adjust_font(10, bold=True), relief=RAISED, bd=1, command=lambda: self.TopButtonClicked("Crop"))
             self.brightness_button = Button(self.CoreTitleButtons, image=self.App.IconImage_Brightenss, font=self.App.adjust_font(10, bold=True), relief=RAISED, bd=1, command=lambda: self.TopButtonClicked("Brightness"))
-            self.brush_button = Button(self.CoreTitleButtons, image=self.App.IconImage_Brush, font=self.App.adjust_font(10, bold=True), relief=RAISED, bd=1, command=lambda: self.TopButtonClicked("Brush"))
+            # CHANGED: brush icon now opens the Filters panel
+            self.filters_button = Button(self.CoreTitleButtons, image=self.App.IconImage_Brush, font=self.App.adjust_font(10, bold=True), relief=RAISED, bd=1, command=lambda: self.TopButtonClicked("Filters"))
             self.pencil_button = Button(self.CoreTitleButtons, image=self.App.IconImage_Pencil, font=self.App.adjust_font(10, bold=True), relief=RAISED, bd=1, command=lambda: self.TopButtonClicked("Pencil"))
             self.eraser_button = Button(self.CoreTitleButtons, image=self.App.IconImage_Eraser, font=self.App.adjust_font(10, bold=True), relief=RAISED, bd=1, command=lambda: self.TopButtonClicked("Eraser"))
             self.ai_features_button = Button(self.CoreTitleButtons, image=self.App.IconImage_AIFeatures, font=self.App.adjust_font(10, bold=True), relief=RAISED, bd=1, command=lambda: self.TopButtonClicked("AI Features"))
-
+            
             self.App.place_component(self.crop_button, 1520/2-150, 15, 50, 50)
             self.App.place_component(self.brightness_button, 1520/2-90, 15, 50, 50)
-            self.App.place_component(self.brush_button, 1520/2-30, 15, 50, 50)
+            self.App.place_component(self.filters_button, 1520/2-30, 15, 50, 50)
             self.App.place_component(self.pencil_button, 1520/2+30, 15, 50, 50)
             self.App.place_component(self.eraser_button, 1520/2+90, 15, 50, 50)
             self.App.place_component(self.ai_features_button, 1520/2+150, 15, 50, 50)
@@ -81,7 +82,7 @@ class ActionBar(Frame):
         buttons = {
             "Crop": self.crop_button,
             "Brightness": self.brightness_button,
-            "Brush": self.brush_button,
+            "Filters": self.filters_button,       # CHANGED: was "Brush"
             "Pencil": self.pencil_button,
             "Eraser": self.eraser_button,
             "AI Features": self.ai_features_button
@@ -114,14 +115,14 @@ class ActionBar(Frame):
             self.Panel = CropPanel(self.App, self.PanelsFrame)
         elif button_name == "Brightness":
             self.Panel = LightPanel(self.App, self.PanelsFrame)
-        elif button_name == "Brush" or button_name == "Pencil":
+        elif button_name == "Filters":                          # CHANGED: moved up, brush icon opens this
+            self.Panel = FiltersPanel(self.App, self.PanelsFrame)
+        elif button_name == "Pencil":                           # CHANGED: was "Brush" or "Pencil"
             self.Panel = DrawingPanel(self.App, self.PanelsFrame)
         elif button_name == "Eraser":
             self.Panel = EraserPanel(self.App, self.PanelsFrame)
         elif button_name == "AI Features":
             self.Panel = AIPanel(self.App, self.PanelsFrame)
-        elif button_name == "Filters":
-            self.Panel = FiltersPanel(self.App, self.PanelsFrame)
         self.Panel.pack(fill=BOTH, expand=True)
 
         self.App.activeTopButton.set(button_name)
