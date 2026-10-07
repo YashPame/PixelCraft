@@ -31,15 +31,19 @@ THEME = {
     "accent_hover":  "#232a5c",
     "accent_light":  "#e2e6f8",   # selected tool / hover
 
+    "sidebar":       "#f2f3fb",   # side panel background (light lavender tint)
+    "sidebar_text":  "#c9cdf0",   # small text on the blue sidebar header
+
     "danger":        "#d14b4b",   # cancel
     "trough":        "#d9ddeb",   # slider track
 }
 
 # ---------------- LAYOUT (in 1536 x 864 design pixels) ----------------
 TOOLBAR_HEIGHT = 80
-CANVAS = (228, 145, 1080, 700)            # x, y, width, height (centered, no panel)
+CANVAS = (208, 145, 1120, 700)            # x, y, width, height (centered, no panel)
 CANVAS_X_WITH_PANEL = 16                  # canvas moves left when a panel is open
-SIDEBAR = (1116, 50 + TOOLBAR_HEIGHT, 420, DEFAULT_HEIGHT - 50 - TOOLBAR_HEIGHT)
+SIDEBAR_WIDTH = 370
+SIDEBAR = (DEFAULT_WIDTH - SIDEBAR_WIDTH, 50 + TOOLBAR_HEIGHT, SIDEBAR_WIDTH, DEFAULT_HEIGHT - 50 - TOOLBAR_HEIGHT)
 
 
 class PhotoEditorApp:
@@ -114,6 +118,16 @@ class PhotoEditorApp:
                         bordercolor=t["surface"], arrowcolor=t["muted"])
         style.configure("Horizontal.TScrollbar", background=t["surface_alt"], troughcolor=t["surface"],
                         bordercolor=t["surface"], arrowcolor=t["muted"])
+
+    def CreateSlider(self, parent, from_=-100, to=100, resolution=1, length=210, **kwargs):
+        # Themed slider for all panels: thin light track, navy handle.
+        # Use it like a normal slider: .set(), .get(), .config(command=...), .bind(...)
+        t = THEME
+        return Scale(parent, from_=from_, to=to, resolution=resolution, orient=HORIZONTAL,
+                     length=self.scale_x(length), showvalue=0, width=8, sliderlength=18,
+                     bd=0, highlightthickness=0, sliderrelief=FLAT,
+                     bg=t["accent"], activebackground=t["accent_hover"], troughcolor=t["trough"],
+                     cursor="hand2", **kwargs)
 
     def UpdateButtons(self, *args):
         self.PanelsFrame.place_forget()

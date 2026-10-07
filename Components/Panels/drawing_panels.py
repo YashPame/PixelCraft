@@ -22,7 +22,9 @@ MAX_PREVIEW_SIZE = PREVIEW_HEIGHT - 16     # biggest brush the preview box can s
 
 class DrawingPanel(Frame):
     def __init__(self, App, PanelFrame, start_tool="Pen"):
-        super().__init__(PanelFrame)
+        self.t = App.theme                              # colors from main.py
+        t = self.t
+        super().__init__(PanelFrame, bg=t["sidebar"])
         self.App = App
         self.Editor = App.editor
         self.canvas = self.Editor.canvas
@@ -34,78 +36,83 @@ class DrawingPanel(Frame):
         self.swatches = {}        # color -> swatch widget
         self.zoom_trace = None    # so the preview updates when you zoom
 
-        self.ContentFrame = Frame(self)
+        self.ContentFrame = Frame(self, bg=t["sidebar"])
         self.ContentFrame.pack(fill=BOTH, expand=True)
 
-        title = Label(self.ContentFrame, text="Draw", font=("Arial", 16), fg=THEME)
-        title.pack(pady=10)
+        title = Label(self.ContentFrame, text="Draw", font=self.App.adjust_font(16, bold=True),
+                      bg=t["sidebar"], fg=t["accent"])
+        title.pack(anchor="w", padx=20, pady=(18, 0))
+        Label(self.ContentFrame, text="Pick a tool, size and color", font=self.App.adjust_font(10),
+              bg=t["sidebar"], fg=t["muted"]).pack(anchor="w", padx=20, pady=(0, 6))
 
         # ----- Tools -----
         self.SectionLabel("Tool")
-        toolFrame = Frame(self.ContentFrame)
+        toolFrame = Frame(self.ContentFrame, bg=t["sidebar"])
         toolFrame.pack(pady=5)
 
         for index, name in enumerate(TOOLS):
             row, col = divmod(index, 3)
             # Radiobutton with indicatoron=0 looks like a toggle button
             button = Radiobutton(toolFrame, text=name, variable=self.tool, value=name,
-                                 indicatoron=0, width=11, font=("Arial", 11),
-                                 selectcolor="#c5cae9", command=self.UpdatePreview)
+                                 indicatoron=0, width=10, font=self.App.adjust_font(10, bold=True),
+                                 bg=t["surface"], fg=t["text"], selectcolor=t["accent_light"],
+                                 activebackground=t["accent_light"], activeforeground=t["accent"],
+                                 relief=FLAT, offrelief=FLAT, bd=0, pady=5, cursor="hand2",
+                                 highlightthickness=1, highlightbackground=t["border"],
+                                 command=self.UpdatePreview)
             button.grid(row=row, column=col, padx=4, pady=4)
 
         # ----- Size -----
         self.SectionLabel("Size")
-        self.SizeSlider = ttk.Scale(self.ContentFrame, from_=1, to=50, orient=HORIZONTAL, length=300)
+        self.SizeSlider = self.App.CreateSlider(self.ContentFrame, from_=1, to=50, length=300)
         self.SizeSlider.set(5)
-        self.SizeSlider.pack(pady=5)
+        self.SizeSlider.pack(pady=(8, 5))
 
         # live preview of the brush (same size as it will look on the image)
-        self.Preview = Canvas(self.ContentFrame, width=PREVIEW_WIDTH, height=PREVIEW_HEIGHT, bg="white",
-                              highlightthickness=1, highlightbackground="#cccccc")
+        self.Preview = Canvas(self.ContentFrame, width=PREVIEW_WIDTH, height=PREVIEW_HEIGHT, bg=t["surface"],
+                              highlightthickness=1, highlightbackground=t["border"])
         self.Preview.pack(pady=(5, 0))
 
-        self.PreviewNote = Label(self.ContentFrame, text="", font=("Arial", 9), fg="gray")
+        self.PreviewNote = Label(self.ContentFrame, text="", font=self.App.adjust_font(9),
+                                 bg=t["sidebar"], fg=t["muted"])
         self.PreviewNote.pack()
 
-        # FIXED: attach the command only now, after the Preview box exists
+        # attach the command only now, after the Preview box exists
         self.SizeSlider.config(command=lambda value: self.UpdatePreview())
 
         # ----- Colors -----
         self.SectionLabel("Color")
-        colorFrame = Frame(self.ContentFrame)
+        colorFrame = Frame(self.ContentFrame, bg=t["sidebar"])
         colorFrame.pack(pady=5)
 
-        self.normal_color = self.cget("bg")
+        self.normal_color = t["sidebar"]
 
         for index, color in enumerate(COLORS):
             row, col = divmod(index, 6)
             swatch = Label(colorFrame, bg=color, width=3, height=1, relief=SOLID, bd=1,
                            highlightthickness=3, highlightbackground=self.normal_color, cursor="hand2")
-            swatch.grid(row=row, column=col, padx=4, pady=4)
+            swatch.grid(row=row, column=col, padx=3, pady=3)
             swatch.bind("<Button-1>", lambda e, c=color: self.SetColor(c))
             self.swatches[color] = swatch
 
-        Button(self.ContentFrame, text="Custom Color...", font=("Arial", 11), width=16,
+        Button(self.ContentFrame, text="Custom Color...", font=self.App.adjust_font(10, bold=True), width=16,
+               bg=t["accent_light"], fg=t["accent"], activebackground=t["trough"], activeforeground=t["accent"],
+               relief=FLAT, bd=0, pady=4, cursor="hand2",
                command=self.PickCustomColor).pack(pady=5)
 
         # ----- Clear -----
-        Button(self.ContentFrame, text="Clear Drawing", font=("Arial", 11, "bold"), width=16,
-               bg=THEME, fg="white", command=self.Editor.ClearDrawing).pack(pady=(10, 5))
-
-        hint = Label(self.ContentFrame, text="Draw on the image with the left mouse button.\n"
-                                             "Eraser removes only your drawing, not the photo.",
-                     font=("Arial", 9), fg="gray")
-        hint.pack(pady=5)
+        Button(self.ContentFrame, text="Clear Drawing", font=self.App.adjust_font(11, bold=True), width=16,
+               bg=t["accent"], fg="white", activebackground=t["accent_hover"], activeforeground="white",
+               relief=FLAT, bd=0, pady=6, cursor="hand2",
+               command=self.Editor.ClearDrawing).pack(pady=(10, 5))
 
         # Mouse on the image canvas draws
         self.canvas.bind("<ButtonPress-1>", self.OnPress)
         self.canvas.bind("<B1-Motion>", self.OnDrag)
         self.canvas.bind("<ButtonRelease-1>", self.OnRelease)
-        self.canvas.bind("<Motion>", self.OnMove)        # NEW: brush outline follows the mouse
-        self.canvas.bind("<Leave>", self.OnLeave)
         self.canvas.config(cursor="crosshair")
 
-        # NEW: update the preview when the zoom changes
+        # update the preview when the zoom changes
         doc = self.Editor.active_image
         if doc is not None:
             self.zoom_trace = doc.zoom.trace_add("write", lambda *args: self.UpdatePreview())
@@ -117,8 +124,11 @@ class DrawingPanel(Frame):
         self.UpdatePreview()
 
     def SectionLabel(self, text):
-        label = Label(self.ContentFrame, text=text, font=("Arial", 12), fg=THEME)
-        label.pack(pady=(10, 0))
+        # thin line, then a small title (same look as the other panels)
+        Frame(self.ContentFrame, bg=self.t["border"], height=1).pack(fill=X, padx=20, pady=(12, 0))
+        label = Label(self.ContentFrame, text=text, font=self.App.adjust_font(11, bold=True),
+                      bg=self.t["sidebar"], fg=self.t["text"])
+        label.pack(anchor="w", padx=20, pady=(10, 0))
 
     # ---------------- Tool / Size / Color ----------------
 
@@ -150,7 +160,7 @@ class DrawingPanel(Frame):
         return self.color, ""
 
     def UpdatePreview(self):
-        # FIXED: draw the brush at its ON-SCREEN size, and never bigger than the box
+        # draw the brush at its ON-SCREEN size, and never bigger than the box
         self.Preview.delete("all")
 
         size = self.ScreenBrushSize()
@@ -198,25 +208,6 @@ class DrawingPanel(Frame):
         b = int(hex_color[5:7], 16)
         return (b, g, r)
 
-    # ---------------- Brush outline on the canvas (NEW) ----------------
-
-    def DrawBrushOutline(self, cx, cy):
-        self.canvas.delete("brush_outline")
-        r = self.ScreenBrushSize() / 2
-        # two circles (white + dark) so it is visible on light and dark photos
-        self.canvas.create_oval(cx - r, cy - r, cx + r, cy + r, outline="white", width=2, tags="brush_outline")
-        self.canvas.create_oval(cx - r, cy - r, cx + r, cy + r, outline="black", width=1, tags="brush_outline")
-
-    def OnMove(self, event):
-        if self.Editor.active_image is None:
-            return
-        cx = self.canvas.canvasx(event.x)
-        cy = self.canvas.canvasy(event.y)
-        self.DrawBrushOutline(cx, cy)
-
-    def OnLeave(self, event):
-        self.canvas.delete("brush_outline")
-
     # ---------------- Drawing with the mouse ----------------
 
     def MousePosition(self, event):
@@ -258,7 +249,6 @@ class DrawingPanel(Frame):
                                     tags="stroke_preview")
 
         self.last_point = (cx, cy)
-        self.DrawBrushOutline(cx, cy)
 
     def OnRelease(self, event):
         if not self.points:
@@ -271,11 +261,6 @@ class DrawingPanel(Frame):
         self.canvas.delete("stroke_preview")
         self.points = []
         self.last_point = None
-
-        # ShowImage cleared the canvas, so draw the outline again
-        cx = self.canvas.canvasx(event.x)
-        cy = self.canvas.canvasy(event.y)
-        self.DrawBrushOutline(cx, cy)
 
     # ---------------- Closing the panel ----------------
 
@@ -295,12 +280,9 @@ class DrawingPanel(Frame):
         try:
             if self.canvas.winfo_exists():
                 self.canvas.delete("stroke_preview")
-                self.canvas.delete("brush_outline")
                 self.canvas.unbind("<ButtonPress-1>")
                 self.canvas.unbind("<B1-Motion>")
                 self.canvas.unbind("<ButtonRelease-1>")
-                self.canvas.unbind("<Motion>")
-                self.canvas.unbind("<Leave>")
                 self.canvas.config(cursor="")
         except TclError:
             pass

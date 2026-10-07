@@ -7,42 +7,47 @@ FILTERS = ["Original", "Grayscale", "Sepia",
            "Warm", "Cool", "Fade",
            "Invert", "Sketch", "Emboss"]
 
-PREVIEW_SIZE = 100       # preview box size in pixels
+PREVIEW_SIZE = 90        # preview box size in pixels (smaller so 3 fit in the sidebar)
 COLUMNS = 3
 SELECTED_COLOR = "#2f3775"
 
 class FiltersPanel(Frame):
     def __init__(self, App, PanelFrame):
-        super().__init__(PanelFrame)
+        t = App.theme                                   # THEME: colors from main.py
+        super().__init__(PanelFrame, bg=t["sidebar"])
         self.App = App
         self.Editor = App.editor
 
         self.cells = {}      # filter name -> (cell frame, image label)
         self.photos = {}     # keep PhotoImages alive (Tkinter deletes them otherwise)
 
-        self.ContentFrame = Frame(self)
+        self.ContentFrame = Frame(self, bg=t["sidebar"])
         self.ContentFrame.pack(fill=BOTH, expand=True)
 
-        title = Label(self.ContentFrame, text="Filters", font=("Arial", 16), fg=SELECTED_COLOR)
-        title.pack(pady=10)
+        title = Label(self.ContentFrame, text="Filters", font=self.App.adjust_font(16, bold=True),
+                      bg=t["sidebar"], fg=t["accent"])
+        title.pack(anchor="w", padx=20, pady=(18, 0))
+        Label(self.ContentFrame, text="Pick a look for your photo", font=self.App.adjust_font(10),
+              bg=t["sidebar"], fg=t["muted"]).pack(anchor="w", padx=20, pady=(0, 6))
+        Frame(self.ContentFrame, bg=t["border"], height=1).pack(fill=X, padx=20, pady=(12, 10))
 
-        grid = Frame(self.ContentFrame)
+        grid = Frame(self.ContentFrame, bg=t["sidebar"])
         grid.pack()
 
-        self.normal_color = self.cget("bg")   # panel background, used for unselected border
+        self.normal_color = t["sidebar"]   # panel background, used for unselected border
 
         for index, name in enumerate(FILTERS):
             row, col = divmod(index, COLUMNS)
 
             # the border (highlight) of this frame shows which filter is selected
-            cell = Frame(grid, highlightthickness=3, highlightbackground=self.normal_color, cursor="hand2")
-            cell.grid(row=row, column=col, padx=8, pady=6)
+            cell = Frame(grid, bg=t["sidebar"], highlightthickness=3, highlightbackground=self.normal_color, cursor="hand2")
+            cell.grid(row=row, column=col, padx=5, pady=5)
 
-            image_label = Label(cell, width=PREVIEW_SIZE, height=PREVIEW_SIZE, bg="#dddddd")
+            image_label = Label(cell, width=PREVIEW_SIZE, height=PREVIEW_SIZE, bg=t["trough"])
             image_label.pack()
 
-            name_label = Label(cell, text=name, font=("Arial", 10), fg=SELECTED_COLOR)
-            name_label.pack(pady=(2, 0))
+            name_label = Label(cell, text=name, font=self.App.adjust_font(9, bold=True), bg=t["sidebar"], fg=t["text"])
+            name_label.pack(pady=(3, 1))
 
             # clicking anywhere on the cell applies the filter
             for widget in (cell, image_label, name_label):

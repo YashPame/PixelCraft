@@ -24,7 +24,7 @@ class UIIconsLoader():
 
         self.App.IconImage_OpenFile = LoadIcon("open_file.png", 30)
 
-        self.App.IconImage_AIFeatures = LoadIcon("ai_features.png", 30)
+        self.App.IconImage_BackgroundRemover = LoadIcon("background_remover.png", 30)
         self.App.IconImage_Brightenss = LoadIcon("brightness.png", 30)
         self.App.IconImage_Brush = LoadIcon("brush.png", 30)
         self.App.IconImage_Crop = LoadIcon("crop.png", 30)

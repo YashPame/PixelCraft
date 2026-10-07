@@ -6,7 +6,7 @@ from Components.Panels.crop_panel import CropPanel
 from Components.Panels.light_panel import LightPanel
 from Components.Panels.drawing_panels import DrawingPanel
 from Components.Panels.eraser_panel import EraserPanel
-from Components.Panels.ai_panel import AIPanel
+from Components.Panels.bgremover_panel import BackgroundRemover
 from Components.Panels.filters_panel import FiltersPanel
 from Components.save_dialog import SaveDialog
 
@@ -57,14 +57,14 @@ class ActionBar(Frame):
         self.filters_button = Button(self.CoreTitleButtons, image=self.App.IconImage_Brush, state=state, command=lambda: self.TopButtonClicked("Filters"), **tool)
         self.pencil_button = Button(self.CoreTitleButtons, image=self.App.IconImage_Pencil, state=state, command=lambda: self.TopButtonClicked("Pencil"), **tool)
         self.eraser_button = Button(self.CoreTitleButtons, image=self.App.IconImage_Eraser, state=state, command=lambda: self.TopButtonClicked("Eraser"), **tool)
-        self.ai_features_button = Button(self.CoreTitleButtons, image=self.App.IconImage_AIFeatures, state=state, command=lambda: self.TopButtonClicked("AI Features"), **tool)
+        self.background_remover_button = Button(self.CoreTitleButtons, image=self.App.IconImage_BackgroundRemover, state=state, command=lambda: self.TopButtonClicked("Background Remover"), **tool)
 
         self.App.place_component(self.crop_button, 1536/2-175, 15, 50, 50)
         self.App.place_component(self.brightness_button, 1536/2-115, 15, 50, 50)
         self.App.place_component(self.filters_button, 1536/2-55, 15, 50, 50)
         self.App.place_component(self.pencil_button, 1536/2+5, 15, 50, 50)
         self.App.place_component(self.eraser_button, 1536/2+65, 15, 50, 50)
-        self.App.place_component(self.ai_features_button, 1536/2+125, 15, 50, 50)
+        self.App.place_component(self.background_remover_button, 1536/2+125, 15, 50, 50)
 
         # ---------------- left: zoom / reset / undo / redo ----------------
         left_options_frame = Frame(self.CoreTitleButtons, bg=t["surface_alt"],
@@ -139,7 +139,7 @@ class ActionBar(Frame):
             "Filters": self.filters_button,
             "Pencil": self.pencil_button,
             "Eraser": self.eraser_button,
-            "AI Features": self.ai_features_button
+            "Background Remover": self.background_remover_button
         }
 
     def ClosePanel(self):
@@ -177,9 +177,9 @@ class ActionBar(Frame):
         self.App.place_configure(self.App.canvas_frame, self.App.CANVAS_X_WITH_PANEL, self.App.CANVAS[1])
 
         # sidebar on the right edge, a different shade from the background + accent strip
-        self.PanelsFrame = Frame(self.App.root, bg=t["surface"], highlightthickness=1, highlightbackground=t["border"])
+        self.PanelsFrame = Frame(self.App.root, bg=t["sidebar"], highlightthickness=1, highlightbackground=t["border"])
         self.App.place_component(self.PanelsFrame, *self.App.SIDEBAR)
-        Frame(self.PanelsFrame, bg=t["accent"], width=4).pack(side=LEFT, fill=Y)
+        # Frame(self.PanelsFrame, bg=t["accent"], width=4).pack(side=LEFT, fill=Y)
 
         if button_name == "Crop":
             self.Panel = CropPanel(self.App, self.PanelsFrame)
@@ -191,8 +191,8 @@ class ActionBar(Frame):
             self.Panel = DrawingPanel(self.App, self.PanelsFrame)
         elif button_name == "Eraser":
             self.Panel = EraserPanel(self.App, self.PanelsFrame)
-        elif button_name == "AI Features":
-            self.Panel = AIPanel(self.App, self.PanelsFrame)
+        elif button_name == "Background Remover":
+            self.Panel = BackgroundRemover(self.App, self.PanelsFrame)
         self.Panel.pack(fill=BOTH, expand=True)
 
         self.App.activeTopButton.set(button_name)
