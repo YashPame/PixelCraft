@@ -1,5 +1,5 @@
 from tkinter import *
-from tkinter import ttk
+from tkinter import ttk, messagebox
 from PIL import Image, ImageTk
 from tkinter import filedialog
 from Components.Panels.crop_panel import CropPanel
@@ -8,6 +8,7 @@ from Components.Panels.drawing_panels import DrawingPanel
 from Components.Panels.eraser_panel import EraserPanel
 from Components.Panels.ai_panel import AIPanel
 from Components.Panels.filters_panel import FiltersPanel
+from Components.save_dialog import SaveDialog          # NEW
 
 class ActionBar(Frame):
     def __init__(self, App):
@@ -16,6 +17,7 @@ class ActionBar(Frame):
 
         self.App = App
         self.Editor = self.App.editor
+        self.PanelsFrame = None
 
         self.CreateButtons()
         self.App.hasImage.trace_add("write", self.UpdateButtons)
@@ -34,7 +36,7 @@ class ActionBar(Frame):
         else:
             self.crop_button = Button(self.CoreTitleButtons, image=self.App.IconImage_Crop, font=self.App.adjust_font(10, bold=True), relief=RAISED, bd=1, command=lambda: self.TopButtonClicked("Crop"))
             self.brightness_button = Button(self.CoreTitleButtons, image=self.App.IconImage_Brightenss, font=self.App.adjust_font(10, bold=True), relief=RAISED, bd=1, command=lambda: self.TopButtonClicked("Brightness"))
-            # CHANGED: brush icon now opens the Filters panel
+            # brush icon opens the Filters panel
             self.filters_button = Button(self.CoreTitleButtons, image=self.App.IconImage_Brush, font=self.App.adjust_font(10, bold=True), relief=RAISED, bd=1, command=lambda: self.TopButtonClicked("Filters"))
             self.pencil_button = Button(self.CoreTitleButtons, image=self.App.IconImage_Pencil, font=self.App.adjust_font(10, bold=True), relief=RAISED, bd=1, command=lambda: self.TopButtonClicked("Pencil"))
             self.eraser_button = Button(self.CoreTitleButtons, image=self.App.IconImage_Eraser, font=self.App.adjust_font(10, bold=True), relief=RAISED, bd=1, command=lambda: self.TopButtonClicked("Eraser"))
@@ -70,32 +72,45 @@ class ActionBar(Frame):
             right_options_frame = Frame(self.CoreTitleButtons)
             self.App.place_component(right_options_frame, 1520-250, 15, 200, 50)
 
-            save_button = Button(right_options_frame, text="Save", font=self.App.adjust_font(12, bold=True), relief=RAISED, bd=1)
-            cancel_button = Button(right_options_frame, text="Cancel", font=self.App.adjust_font(12, bold=True), relief=RAISED, bd=1)
+            # CHANGED: Save and Cancel now do something
+            save_button = Button(right_options_frame, text="Save", font=self.App.adjust_font(12, bold=True), relief=RAISED, bd=1, command=self.SaveClicked)
+            cancel_button = Button(right_options_frame, text="Cancel", font=self.App.adjust_font(12, bold=True), relief=RAISED, bd=1, command=self.CancelClicked)
 
             self.App.place_component(save_button, 10, 5, 100, 40)
             self.App.place_component(cancel_button, 120, 5, 70, 40)
 
-    def TopButtonClicked(self, button_name):
-        current_button = self.App.activeTopButton.get()
-
-        buttons = {
+    def GetButtons(self):
+        # NEW: top buttons by name (used in a few places)
+        return {
             "Crop": self.crop_button,
             "Brightness": self.brightness_button,
-            "Filters": self.filters_button,       # CHANGED: was "Brush"
+            "Filters": self.filters_button,
             "Pencil": self.pencil_button,
             "Eraser": self.eraser_button,
             "AI Features": self.ai_features_button
         }
 
-        if current_button == button_name:
-            buttons[current_button].config(bg="SystemButtonFace", highlightbackground="black", relief=RAISED)
+    def ClosePanel(self):
+        # NEW: un-highlight the active button, remove the side panel, center the canvas
+        current_button = self.App.activeTopButton.get()
+
+        if current_button != "None":
+            self.GetButtons()[current_button].config(bg="SystemButtonFace", highlightbackground="black", relief=RAISED)
             self.App.activeTopButton.set("None")
 
-            if hasattr(self, 'PanelsFrame') and self.PanelsFrame:
-                self.PanelsFrame.destroy()
-                self.PanelsFrame = None
-            self.App.canvas_frame.place_configure(x=1520/2-325, y=150)
+        if self.PanelsFrame:
+            self.PanelsFrame.destroy()
+            self.PanelsFrame = None
+
+        self.App.canvas_frame.place_configure(x=1520/2-325, y=150)
+
+    def TopButtonClicked(self, button_name):
+        current_button = self.App.activeTopButton.get()
+        buttons = self.GetButtons()
+
+        # clicking the active button again closes its panel
+        if current_button == button_name:
+            self.ClosePanel()
             return
 
         if current_button != "None":
@@ -103,7 +118,7 @@ class ActionBar(Frame):
 
         buttons[button_name].config(bg="yellow", highlightbackground="black", relief=RAISED)
 
-        if hasattr(self, 'PanelsFrame') and self.PanelsFrame:
+        if self.PanelsFrame:
             self.PanelsFrame.destroy()
 
         self.App.canvas_frame.place_configure(x=1520/2-650, y=150)
@@ -115,9 +130,9 @@ class ActionBar(Frame):
             self.Panel = CropPanel(self.App, self.PanelsFrame)
         elif button_name == "Brightness":
             self.Panel = LightPanel(self.App, self.PanelsFrame)
-        elif button_name == "Filters":                          # CHANGED: moved up, brush icon opens this
+        elif button_name == "Filters":
             self.Panel = FiltersPanel(self.App, self.PanelsFrame)
-        elif button_name == "Pencil":                           # CHANGED: was "Brush" or "Pencil"
+        elif button_name == "Pencil":
             self.Panel = DrawingPanel(self.App, self.PanelsFrame)
         elif button_name == "Eraser":
             self.Panel = EraserPanel(self.App, self.PanelsFrame)
@@ -126,8 +141,29 @@ class ActionBar(Frame):
         self.Panel.pack(fill=BOTH, expand=True)
 
         self.App.activeTopButton.set(button_name)
-    
 
+    def SaveClicked(self):
+        # NEW: open the save window
+        if self.Editor.active_image is None:
+            return
+        SaveDialog(self.App)
+
+    def CancelClicked(self):
+        # NEW: discard the image and go back to the "Open Image" screen
+        doc = self.Editor.active_image
+        if doc is None:
+            return
+
+        if doc.modified:
+            answer = messagebox.askyesno(
+                "Discard changes?",
+                "You have unsaved changes.\nDo you want to discard them and go back?"
+            )
+            if not answer:
+                return
+
+        self.ClosePanel()          # close the side panel first (it uses the canvas)
+        self.Editor.CloseImage()   # then remove the image -> back to Open Image screen
 
     def UpdateButtons(self, *args):
         self.CoreTitleButtons.destroy()

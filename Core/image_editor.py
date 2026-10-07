@@ -3,7 +3,6 @@ import math
 import numpy as np
 from tkinter import *
 from tkinter import filedialog, messagebox
-from PIL import Image, ImageEnhance, ImageFilter, ImageTk
 from PIL import Image, ImageEnhance, ImageFilter, ImageOps, ImageTk
 
 from Core.image_document import ImageDocument
@@ -19,6 +18,12 @@ MAX_ZOOM = 10.0
 MIN_ZOOM = 0.20
 ZOOM_STEP = 0.05
 
+
+def CopyOrNone(array):
+    # NEW: copy a numpy image, or keep None
+    return None if array is None else array.copy()
+
+
 class Editor:
     def __init__(self, App, canvas):
         self.canvas = canvas
@@ -27,7 +32,7 @@ class Editor:
         self.canvas_image_id = None
         self.state_before_adjust = None
 
-        # NEW: where the image is drawn on the canvas (used by the crop box)
+        # where the image is drawn on the canvas (used by crop box and drawing)
         self.image_x = 0
         self.image_y = 0
         self.display_width = 0
@@ -96,7 +101,7 @@ class Editor:
 
         self.canvas_image_id = self.canvas.create_image(x, y, anchor="nw", image=photo)
 
-        # NEW: remember where the image is on the canvas
+        # remember where the image is on the canvas
         self.image_x = x
         self.image_y = y
         self.display_width = image_width
@@ -107,7 +112,7 @@ class Editor:
 
         self.canvas.configure(scrollregion=(0, 0, scroll_width, scroll_height))
 
-        # NEW: if the crop panel is open, draw the crop box again on top of the image
+        # if the crop panel is open, draw the crop box again on top of the image
         crop_panel = getattr(self.App, "crop_panel", None)
         if crop_panel is not None and crop_panel.winfo_exists():
             crop_panel.DrawCropBox()
@@ -131,29 +136,33 @@ class Editor:
     # ---------------- Undo / Redo ----------------
 
     def GetState(self):
-        source = self.active_image.straighten_source
+        # CHANGED: saves everything needed to rebuild the image (incl. drawing)
+        doc = self.active_image
         return {
-            "image": self.active_image.image.copy(),
-            "base_image": self.active_image.base_image.copy(),
-            "zoom": self.active_image.zoom.get(),
-            "adjustments": dict(self.active_image.adjustments),
-            "straighten_source": None if source is None else source.copy(),
-            "straighten_angle": self.active_image.straighten_angle,
-            "filter_name": self.active_image.filter_name        # NEW
+            "base_image": doc.base_image.copy(),
+            "zoom": doc.zoom.get(),
+            "adjustments": dict(doc.adjustments),
+            "straighten_source": CopyOrNone(doc.straighten_source),
+            "straighten_angle": doc.straighten_angle,
+            "filter_name": doc.filter_name,
+            "drawing_layer": CopyOrNone(doc.drawing_layer),      # NEW
+            "drawing_source": CopyOrNone(doc.drawing_source),    # NEW
         }
 
     def RestoreState(self, state):
-        # NEW: used by Undo and Redo
+        # CHANGED: restore the settings, then rebuild the image from them
         doc = self.active_image
-        doc.image = state["image"]
         doc.base_image = state["base_image"]
         doc.zoom.set(state["zoom"])
         doc.zoom_percentage.set(f"{round(doc.zoom.get() * 100, 2)}%")
         doc.adjustments = state["adjustments"]
         doc.straighten_source = state["straighten_source"]
         doc.straighten_angle = state["straighten_angle"]
-        doc.filter_name = state["filter_name"] 
+        doc.filter_name = state["filter_name"]
+        doc.drawing_layer = state["drawing_layer"]
+        doc.drawing_source = state["drawing_source"]
 
+        self.RenderImage()
         self.SyncSliders()
         self.ShowImage()
 
@@ -196,7 +205,7 @@ class Editor:
         doc = self.active_image
 
         changed = (before["adjustments"] != doc.adjustments or
-                   before["straighten_angle"] != doc.straighten_angle)   # CHANGED
+                   before["straighten_angle"] != doc.straighten_angle)
 
         if changed:
             doc.undo_stack.append(before)
@@ -217,13 +226,14 @@ class Editor:
         if light_panel is not None and light_panel.winfo_exists():
             light_panel.SetValues(self.active_image.adjustments)
 
-        crop_panel = getattr(self.App, "crop_panel", None)          # NEW
+        crop_panel = getattr(self.App, "crop_panel", None)
         if crop_panel is not None and crop_panel.winfo_exists():
             crop_panel.SetAngle(self.active_image.straighten_angle)
 
-        filters_panel = getattr(self.App, "filters_panel", None)     # NEW
+        filters_panel = getattr(self.App, "filters_panel", None)
         if filters_panel is not None and filters_panel.winfo_exists():
             filters_panel.Refresh()
+
     # ---------------- Zoom / Reset ----------------
 
     def ZoomIn(self):
@@ -257,20 +267,23 @@ class Editor:
         doc = self.active_image
         doc.image = doc.orignal_image.copy()
         doc.base_image = doc.orignal_image.copy()
+        doc.processed_image = doc.orignal_image.copy()   # NEW
         doc.adjustments = {}
-        doc.straighten_source = None      # NEW
-        doc.straighten_angle = 0          # NEW
+        doc.straighten_source = None
+        doc.straighten_angle = 0
         doc.filter_name = "Original"
+        doc.drawing_layer = None                         # NEW
+        doc.drawing_source = None                        # NEW
         doc.modified = False
 
         doc.undo_stack.clear()
         doc.redo_stack.clear()
 
-        self.SetInitialZoom()   # CHANGED: re-fit, because crop may have changed the size
+        self.SetInitialZoom()
         self.SyncSliders()
         self.ShowImage()
 
-    # ---------------- Rotate / Flip / Straighten / Crop (NEW) ----------------
+    # ---------------- Rotate / Flip / Straighten / Crop ----------------
 
     def Rotate90(self, clockwise=True):
         if self.active_image is None:
@@ -283,7 +296,11 @@ class Editor:
         else:
             code = cv2.ROTATE_90_COUNTERCLOCKWISE
 
-        self.active_image.base_image = cv2.rotate(self.active_image.base_image, code)
+        doc = self.active_image
+        doc.base_image = cv2.rotate(doc.base_image, code)
+        if doc.drawing_layer is not None:                          # NEW: rotate drawing too
+            doc.drawing_layer = cv2.rotate(doc.drawing_layer, code)
+
         self.ClearStraighten()
         self.RenderImage()
         self.ShowImage()
@@ -296,7 +313,12 @@ class Editor:
 
         # 1 = flip left/right, 0 = flip up/down
         flip_code = 1 if horizontal else 0
-        self.active_image.base_image = cv2.flip(self.active_image.base_image, flip_code)
+
+        doc = self.active_image
+        doc.base_image = cv2.flip(doc.base_image, flip_code)
+        if doc.drawing_layer is not None:                          # NEW: flip drawing too
+            doc.drawing_layer = cv2.flip(doc.drawing_layer, flip_code)
+
         self.ClearStraighten()
         self.RenderImage()
         self.ShowImage()
@@ -314,13 +336,18 @@ class Editor:
 
         if doc.straighten_source is None:
             doc.straighten_source = doc.base_image.copy()
+            doc.drawing_source = CopyOrNone(doc.drawing_layer)     # NEW
 
         doc.straighten_angle = angle
         doc.base_image = self.RotateAndFill(doc.straighten_source, angle)
+
+        if doc.drawing_source is not None:                         # NEW: rotate drawing too
+            doc.drawing_layer = self.RotateAndFill(doc.drawing_source, angle, fill_edges=False)
+
         self.RenderImage()
         self.ShowImage()
 
-    def RotateAndFill(self, img, angle):
+    def RotateAndFill(self, img, angle, fill_edges=True):
         # Rotate by any angle and zoom in just enough so no empty corners show
         if angle == 0:
             return img.copy()
@@ -331,14 +358,18 @@ class Editor:
         scale = max(math.cos(a) + (h / w) * math.sin(a),
                     math.cos(a) + (w / h) * math.sin(a))
 
+        # CHANGED: the drawing layer uses transparent edges instead of repeated pixels
+        border = cv2.BORDER_REPLICATE if fill_edges else cv2.BORDER_CONSTANT
+
         # OpenCV uses positive = anticlockwise, so -angle makes positive = clockwise
         matrix = cv2.getRotationMatrix2D((w / 2, h / 2), -angle, scale)
         return cv2.warpAffine(img, matrix, (w, h), flags=cv2.INTER_LINEAR,
-                              borderMode=cv2.BORDER_REPLICATE)
+                              borderMode=border, borderValue=0)
 
     def ClearStraighten(self):
-        # After rotate/flip/crop the straighten angle becomes part of the image
+        # After rotate/flip/crop/draw the straighten angle becomes part of the image
         self.active_image.straighten_source = None
+        self.active_image.drawing_source = None       # NEW
         self.active_image.straighten_angle = 0
         self.SyncSliders()
 
@@ -359,6 +390,9 @@ class Editor:
         self.SaveState()
 
         doc.base_image = doc.base_image[y1:y2, x1:x2].copy()
+        if doc.drawing_layer is not None:                          # NEW: crop drawing too
+            doc.drawing_layer = doc.drawing_layer[y1:y2, x1:x2].copy()
+
         self.ClearStraighten()
         self.RenderImage()
         self.SetInitialZoom()   # fit the new (smaller) image in the canvas
@@ -449,13 +483,14 @@ class Editor:
             self.SaveState()
 
         self.active_image.adjustments = values
-        self.RenderImage()      # CHANGED: the work moved into RenderImage
+        self.RenderImage()
         self.ShowImage()
 
     def RenderImage(self):
-        # image = base_image + light/color adjustments + filter
+        # CHANGED: image = (base_image + adjustments + filter) + drawing on top
         doc = self.active_image
-        doc.image = self.ProcessImage(doc.base_image, doc.adjustments, doc.filter_name)
+        doc.processed_image = self.ProcessImage(doc.base_image, doc.adjustments, doc.filter_name)
+        doc.image = self.CompositeDrawing(doc.processed_image, doc.drawing_layer)
         doc.modified = True
 
     def ProcessImage(self, img, adjustments, filter_name):
@@ -490,7 +525,7 @@ class Editor:
 
         return result
 
-
+    # ---------------- Filters ----------------
 
     def SetFilter(self, filter_name):
         # Called when a filter preview is clicked
@@ -561,3 +596,109 @@ class Editor:
 
         # "Original" -> no change
         return pil_img
+
+    # ---------------- Drawing (NEW) ----------------
+
+    def CompositeDrawing(self, img, layer):
+        # Put the transparent drawing layer on top of the image
+        if layer is None or not layer[:, :, 3].any():
+            return img
+
+        if img.ndim == 2:
+            img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+
+        alpha = layer[:, :, 3:4].astype(np.float32) / 255      # 0 = no drawing, 1 = solid drawing
+        photo = img[:, :, :3].astype(np.float32)
+        ink = layer[:, :, :3].astype(np.float32)
+
+        result = img.copy()
+        result[:, :, :3] = (ink * alpha + photo * (1 - alpha)).astype(np.uint8)
+
+        # transparent PNG: drawing makes those pixels visible
+        if img.shape[2] == 4:
+            result[:, :, 3] = np.maximum(img[:, :, 3], layer[:, :, 3])
+
+        return result
+
+    def AddStroke(self, points, color_bgr, size, opacity, erase=False):
+        # points: list of (x, y) in IMAGE pixels, size: brush size in IMAGE pixels
+        if self.active_image is None or not points:
+            return
+
+        doc = self.active_image
+        h, w = doc.base_image.shape[:2]
+
+        # only work on the small area around the stroke (much faster on big photos)
+        pad = size // 2 + 2
+        xs = [p[0] for p in points]
+        ys = [p[1] for p in points]
+        x0, y0 = max(0, min(xs) - pad), max(0, min(ys) - pad)
+        x1, y1 = min(w, max(xs) + pad + 1), min(h, max(ys) + pad + 1)
+
+        if x0 >= x1 or y0 >= y1:
+            return   # stroke was completely outside the image
+
+        if erase and doc.drawing_layer is None:
+            return   # nothing to erase
+
+        self.SaveState()
+        self.ClearStraighten()   # the current angle becomes part of the image
+
+        if doc.drawing_layer is None:
+            doc.drawing_layer = np.zeros((h, w, 4), dtype=np.uint8)
+
+        # 1. draw the stroke shape as white on black (the "mask")
+        mask = np.zeros((y1 - y0, x1 - x0), dtype=np.uint8)
+        local = np.array([(x - x0, y - y0) for x, y in points], dtype=np.int32)
+
+        if len(local) == 1:
+            center = (int(local[0][0]), int(local[0][1]))
+            cv2.circle(mask, center, max(1, size // 2), 255, -1, cv2.LINE_AA)
+        else:
+            cv2.polylines(mask, [local.reshape(-1, 1, 2)], False, 255,
+                          thickness=max(1, size), lineType=cv2.LINE_AA)
+
+        # how strong the stroke is at each pixel (0 to 1)
+        strength = (mask.astype(np.float32) / 255 * opacity)[:, :, None]
+
+        region = doc.drawing_layer[y0:y1, x0:x1].astype(np.float32)
+        old_alpha = region[:, :, 3:4] / 255
+
+        if erase:
+            # 2a. eraser: make the drawing transparent where the stroke is
+            region[:, :, 3:4] = old_alpha * (1 - strength) * 255
+        else:
+            # 2b. pen: put the new color "over" the old drawing
+            new_alpha = strength + old_alpha * (1 - strength)
+            color = np.array(color_bgr, dtype=np.float32)
+            new_rgb = (color * strength + region[:, :, :3] * old_alpha * (1 - strength)) / np.maximum(new_alpha, 1e-6)
+
+            region[:, :, :3] = new_rgb
+            region[:, :, 3:4] = new_alpha * 255
+
+        doc.drawing_layer[y0:y1, x0:x1] = np.clip(region, 0, 255).astype(np.uint8)
+
+        # only the drawing changed, so no need to redo adjustments / filter
+        doc.image = self.CompositeDrawing(doc.processed_image, doc.drawing_layer)
+        doc.modified = True
+        self.ShowImage()
+
+    def ClearDrawing(self):
+        if self.active_image is None:
+            return
+
+        doc = self.active_image
+        if doc.drawing_layer is None or not doc.drawing_layer[:, :, 3].any():
+            return
+
+        self.SaveState()
+        doc.drawing_layer = None
+        doc.drawing_source = None
+        doc.image = doc.processed_image.copy()
+        self.ShowImage()
+
+    def CloseImage(self):
+        # Discard the image and go back to the "Open Image" screen
+        self.active_image = None
+        self.canvas.delete("all")
+        self.App.hasImage.set(False)   # ActionBar and App update themselves from this

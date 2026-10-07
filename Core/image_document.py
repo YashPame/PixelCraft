@@ -15,8 +15,8 @@ class ImageDocument:
 
         self.orignal_image = cv2.imread(file_path, cv2.IMREAD_UNCHANGED)
 
-        self.image = self.orignal_image.copy()
-        self.base_image = self.orignal_image.copy() 
+        self.image = self.orignal_image.copy()        # what is shown (everything applied)
+        self.base_image = self.orignal_image.copy()   # after rotate / flip / crop
 
         self.undo_stack = []
         self.redo_stack = []
@@ -29,8 +29,12 @@ class ImageDocument:
         self.modified = False
         self.adjustments = {}
 
-        self.straighten_source = None   
+        self.straighten_source = None
         self.straighten_angle = 0
 
         self.filter_name = "Original"
-        
+
+        # NEW: drawing
+        self.processed_image = self.orignal_image.copy()   # base + adjustments + filter (no drawing)
+        self.drawing_layer = None    # transparent BGRA layer with pen strokes (same size as base_image)
+        self.drawing_source = None   # drawing layer before straightening
