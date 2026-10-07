@@ -1,83 +1,74 @@
 from tkinter import *
 from tkinter import ttk
 
+LIGHT_OPTIONS = ["Brightness", "Exposure", "Contrast", "Highlights", "Shadows", "Vignette"]
+COLOR_OPTIONS = ["Saturation", "Warmth", "Tint", "Sharpness"]
+
+
 class LightPanel(Frame):
     def __init__(self, App, PanelFrame):
         super().__init__(PanelFrame)
         self.App = App
+        self.Editor = App.editor
 
-        self.LightColorOptionsInstances = {}   # option name -> slider
-        self.after_id = None                   # for the small delay while sliding
+        self.sliders = {}       # option name -> slider
+        self.after_id = None    # small delay while sliding
 
-        # Normal frame that holds all the sliders (no scrolling)
-        self.ContentFrame = Frame(self)
-        self.ContentFrame.pack(fill=BOTH, expand=True)
-
-        LightLabel = Label(self.ContentFrame, text="Light", font=("Arial", 16), fg="#2f3775")
-        LightLabel.pack(pady=(20,10))
-
-        LightOptions = ["Brightness", "Exposure", "Contrast", "Highlights", "Shadows", "Vignette"]
-        for option in LightOptions:
+        Label(self, text="Light", font=("Arial", 16), fg="#2f3775").pack(pady=(20, 10))
+        for option in LIGHT_OPTIONS:
             self.CreateOption(option)
 
-        ColorLabel = Label(self.ContentFrame, text="Color", font=("Arial", 16), fg="#2f3775")
-        ColorLabel.pack(pady=(20,10))
-
-        ColorOptions = ["Saturation", "Warmth", "Tint", "Sharpness"]
-        for option in ColorOptions:
+        Label(self, text="Color", font=("Arial", 16), fg="#2f3775").pack(pady=(20, 10))
+        for option in COLOR_OPTIONS:
             self.CreateOption(option)
 
-        # Let the Editor find this panel (used by Undo / Redo / Reset)
+        # let the Editor find this panel (used by Undo / Redo / Reset)
         self.App.light_panel = self
 
-        # If the panel is opened after editing, show the current values
-        editor = getattr(self.App, "editor", None)
-        if editor is not None and editor.active_image is not None:
-            self.SetValues(editor.active_image.adjustments)
+        # show the current values if the image was already edited
+        if self.Editor.active_image is not None:
+            self.SetValues(self.Editor.active_image.adjustments)
 
     def CreateOption(self, option):
-        optionFrame = Frame(self.ContentFrame)
-        optionFrame.pack(pady=5)
+        row = Frame(self)
+        row.pack(pady=5)
 
-        optionLabel = Label(optionFrame, text=option, font=("Arial", 12), fg="#2f3775", width=12, anchor="w")
-        optionLabel.grid(row=0, column=0, padx=25, sticky="w")
+        Label(row, text=option, font=("Arial", 12), fg="#2f3775", width=12, anchor="w").grid(row=0, column=0, padx=25)
 
-        optionSlider = ttk.Scale(optionFrame, from_=-100, to=100, orient=HORIZONTAL, length=200)
-        optionSlider.set(0)
-        optionSlider.config(command=self.OnSlide)   # runs while dragging
-        optionSlider.grid(row=0, column=1, padx=5)
-        optionSlider.bind("<ButtonPress-1>", self.StartSlide)
-        optionSlider.bind("<ButtonRelease-1>", self.EndSlide)
+        slider = ttk.Scale(row, from_=-100, to=100, orient=HORIZONTAL, length=200, command=self.OnSlide)
+        slider.grid(row=0, column=1, padx=5)
+        slider.bind("<ButtonPress-1>", self.StartSlide)
+        slider.bind("<ButtonRelease-1>", self.EndSlide)
 
-        self.LightColorOptionsInstances[option] = optionSlider
+        self.sliders[option] = slider
 
-    def UpdateValues(self, event=None):
+    def GetValues(self):
+        # ttk.Scale gives floats, the editor wants whole numbers
+        return {option: int(round(slider.get())) for option, slider in self.sliders.items()}
+
+    def UpdateImage(self):
         self.after_id = None
-        Values = {}
-
-        for option, slider in self.LightColorOptionsInstances.items():
-            Values[option] = int(round(slider.get()))   # ttk.Scale gives floats
-
         # save_state=False: undo is handled in StartSlide / EndSlide
-        self.App.editor.ApplyAdjustments(Values, save_state=False)
+        # (ApplyAdjustments does nothing if the values did not change)
+        self.Editor.ApplyAdjustments(self.GetValues(), save_state=False)
 
     def OnSlide(self, value):
-        # wait 30 ms after the last movement before updating the image
+        # update the image only 30 ms after the slider stops moving
         if self.after_id is not None:
             self.after_cancel(self.after_id)
-        self.after_id = self.after(30, self.UpdateValues)
+        self.after_id = self.after(30, self.UpdateImage)
 
     def StartSlide(self, event):
-        self.App.editor.StartAdjust()
+        self.Editor.StartAdjust()
 
     def EndSlide(self, event):
-        # apply the final value right away, then record it for undo
+        # apply the final value right away, then add one undo step
         if self.after_id is not None:
             self.after_cancel(self.after_id)
-        self.UpdateValues()
-        self.App.editor.EndAdjust()
+        self.UpdateImage()
+        self.Editor.EndAdjust()
 
     def SetValues(self, values):
         # used by Undo / Redo / Reset / Open to move the sliders
-        for option, slider in self.LightColorOptionsInstances.items():
+        for option, slider in self.sliders.items():
             slider.set(values.get(option, 0))

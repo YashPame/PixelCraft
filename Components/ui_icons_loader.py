@@ -35,3 +35,8 @@ class UIIconsLoader():
         self.App.IconImage_Redo = LoadIcon("redo.png", 20)
         self.App.IconImage_ZoomIn = LoadIcon("zoom_in.png", 20)
         self.App.IconImage_ZoomOut = LoadIcon("zoom_out.png", 20)
+
+        self.App.IconImage_RotateLeft = LoadIcon("rotate_left.png", 30)
+        self.App.IconImage_RotateRight = LoadIcon("rotate_right.png", 30)
+        self.App.IconImage_FlipHorizontal = LoadIcon("horizontal_flip.png", 30)
+        self.App.IconImage_FlipVertical = LoadIcon("vertical_flip.png", 30)

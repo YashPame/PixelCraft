@@ -8,79 +8,131 @@ from Components.Panels.drawing_panels import DrawingPanel
 from Components.Panels.eraser_panel import EraserPanel
 from Components.Panels.ai_panel import AIPanel
 from Components.Panels.filters_panel import FiltersPanel
-from Components.save_dialog import SaveDialog          # NEW
+from Components.save_dialog import SaveDialog
+
 
 class ActionBar(Frame):
     def __init__(self, App):
-        super().__init__(App.root)
-
+        self.t = App.theme                                # colors from main.py
+        super().__init__(App.root, bg=self.t["surface"])
 
         self.App = App
         self.Editor = self.App.editor
         self.PanelsFrame = None
+        self.OpenImageFrame = None                       # center "Open Image" box
+        self.zoom_placeholder = StringVar(value="100%")  # zoom text when no image
+
+        # thin line under the toolbar
+        Frame(self, bg=self.t["border"]).place(x=0, rely=1, relwidth=1, height=1, anchor="sw")
 
         self.CreateButtons()
         self.App.hasImage.trace_add("write", self.UpdateButtons)
 
+    # ---------------- styles ----------------
+
+    def ToolStyle(self):
+        # icon buttons (tools, zoom, undo, redo)
+        t = self.t
+        return dict(bg=t["surface_alt"], activebackground=t["accent_light"], relief=FLAT, bd=0,
+                    highlightthickness=0, cursor="hand2")
+
+    def TextButtonStyle(self, size=11):
+        t = self.t
+        return dict(font=self.App.adjust_font(size, bold=True), fg=t["text"], disabledforeground=t["muted"],
+                    **self.ToolStyle())
+
     def CreateButtons(self):
-        self.CoreTitleButtons = Frame(self)
-        self.CoreTitleButtons.place(x=0, y=0, width=1520, height=105)
+        t = self.t
+        has_image = self.App.hasImage.get()
+        state = NORMAL if has_image else DISABLED
 
-        if self.App.hasImage.get() == False:
-            open_img_button = Button(self.CoreTitleButtons, image=self.App.IconImage_OpenFile, font=self.App.adjust_font(10, bold=True), relief=RAISED, bd=1, command=self.Editor.OpenImage)
-            self.App.place_component(open_img_button, 1520/2-25, 15, 50, 50)
+        self.CoreTitleButtons = Frame(self, bg=t["surface"])
+        self.CoreTitleButtons.place(x=0, y=0, relwidth=1, relheight=1, height=-1)
 
-            open_img_label = Label(self.CoreTitleButtons, text="Open Image", font=self.App.adjust_font(12, bold=True), bg="SYSTEMBUTTONFACE")
-            self.App.place_component(open_img_label, 1520/2-50, 65, 100, 50)
+        # ---------------- top tool buttons (always shown, disabled without an image) ----------------
+        tool = self.ToolStyle()
+        self.crop_button = Button(self.CoreTitleButtons, image=self.App.IconImage_Crop, state=state, command=lambda: self.TopButtonClicked("Crop"), **tool)
+        self.brightness_button = Button(self.CoreTitleButtons, image=self.App.IconImage_Brightenss, state=state, command=lambda: self.TopButtonClicked("Brightness"), **tool)
+        # brush icon opens the Filters panel
+        self.filters_button = Button(self.CoreTitleButtons, image=self.App.IconImage_Brush, state=state, command=lambda: self.TopButtonClicked("Filters"), **tool)
+        self.pencil_button = Button(self.CoreTitleButtons, image=self.App.IconImage_Pencil, state=state, command=lambda: self.TopButtonClicked("Pencil"), **tool)
+        self.eraser_button = Button(self.CoreTitleButtons, image=self.App.IconImage_Eraser, state=state, command=lambda: self.TopButtonClicked("Eraser"), **tool)
+        self.ai_features_button = Button(self.CoreTitleButtons, image=self.App.IconImage_AIFeatures, state=state, command=lambda: self.TopButtonClicked("AI Features"), **tool)
 
+        self.App.place_component(self.crop_button, 1536/2-175, 15, 50, 50)
+        self.App.place_component(self.brightness_button, 1536/2-115, 15, 50, 50)
+        self.App.place_component(self.filters_button, 1536/2-55, 15, 50, 50)
+        self.App.place_component(self.pencil_button, 1536/2+5, 15, 50, 50)
+        self.App.place_component(self.eraser_button, 1536/2+65, 15, 50, 50)
+        self.App.place_component(self.ai_features_button, 1536/2+125, 15, 50, 50)
+
+        # ---------------- left: zoom / reset / undo / redo ----------------
+        left_options_frame = Frame(self.CoreTitleButtons, bg=t["surface_alt"],
+                                   highlightthickness=1, highlightbackground=t["border"])
+        self.App.place_component(left_options_frame, 30, 15, 355, 50)
+
+        if has_image and self.Editor.active_image is not None:
+            zoom_var = self.Editor.active_image.zoom_percentage
         else:
-            self.crop_button = Button(self.CoreTitleButtons, image=self.App.IconImage_Crop, font=self.App.adjust_font(10, bold=True), relief=RAISED, bd=1, command=lambda: self.TopButtonClicked("Crop"))
-            self.brightness_button = Button(self.CoreTitleButtons, image=self.App.IconImage_Brightenss, font=self.App.adjust_font(10, bold=True), relief=RAISED, bd=1, command=lambda: self.TopButtonClicked("Brightness"))
-            # brush icon opens the Filters panel
-            self.filters_button = Button(self.CoreTitleButtons, image=self.App.IconImage_Brush, font=self.App.adjust_font(10, bold=True), relief=RAISED, bd=1, command=lambda: self.TopButtonClicked("Filters"))
-            self.pencil_button = Button(self.CoreTitleButtons, image=self.App.IconImage_Pencil, font=self.App.adjust_font(10, bold=True), relief=RAISED, bd=1, command=lambda: self.TopButtonClicked("Pencil"))
-            self.eraser_button = Button(self.CoreTitleButtons, image=self.App.IconImage_Eraser, font=self.App.adjust_font(10, bold=True), relief=RAISED, bd=1, command=lambda: self.TopButtonClicked("Eraser"))
-            self.ai_features_button = Button(self.CoreTitleButtons, image=self.App.IconImage_AIFeatures, font=self.App.adjust_font(10, bold=True), relief=RAISED, bd=1, command=lambda: self.TopButtonClicked("AI Features"))
-            
-            self.App.place_component(self.crop_button, 1520/2-150, 15, 50, 50)
-            self.App.place_component(self.brightness_button, 1520/2-90, 15, 50, 50)
-            self.App.place_component(self.filters_button, 1520/2-30, 15, 50, 50)
-            self.App.place_component(self.pencil_button, 1520/2+30, 15, 50, 50)
-            self.App.place_component(self.eraser_button, 1520/2+90, 15, 50, 50)
-            self.App.place_component(self.ai_features_button, 1520/2+150, 15, 50, 50)
+            zoom_var = self.zoom_placeholder
 
-            left_options_frame = Frame(self.CoreTitleButtons, bd=1, relief=SOLID)
-            self.App.place_component(left_options_frame, 50, 15, 355, 50)
+        zoom_in_button = Button(left_options_frame, image=self.App.IconImage_ZoomIn, state=state, command=self.Editor.ZoomIn, **tool)
+        zoom_out_button = Button(left_options_frame, image=self.App.IconImage_ZoomOut, state=state, command=self.Editor.ZoomOut, **tool)
+        zoom_percentage_label = Label(left_options_frame, textvariable=zoom_var, font=self.App.adjust_font(11, bold=True),
+                                      bg=t["surface_alt"], fg=t["text"], disabledforeground=t["muted"], state=state)
+        seperator1 = Frame(left_options_frame, bg=t["border"])
 
-            zoom_in_button = Button(left_options_frame, image=self.App.IconImage_ZoomIn, font=self.App.adjust_font(20, bold=True), relief=RAISED, bd=1, command=self.Editor.ZoomIn)
-            zoom_out_button = Button(left_options_frame, image=self.App.IconImage_ZoomOut, font=self.App.adjust_font(20, bold=True), relief=RAISED, bd=1, command=self.Editor.ZoomOut)
-            zoom_percentage_label = Label(left_options_frame, textvariable=self.Editor.active_image.zoom_percentage, font=self.App.adjust_font(12, bold=True), bg="SYSTEMBUTTONFACE")
-            seperator1 = Frame(left_options_frame, bg="black")
+        reset_button = Button(left_options_frame, text="Reset", state=state, command=self.Editor.Reset, **self.TextButtonStyle())
+        undo_button = Button(left_options_frame, image=self.App.IconImage_Undo, state=state, command=self.Editor.Undo, **tool)
+        redo_button = Button(left_options_frame, image=self.App.IconImage_Redo, state=state, command=self.Editor.Redo, **tool)
 
-            reset_button = Button(left_options_frame, text="Reset", font=self.App.adjust_font(12, bold=True), relief=RAISED, bd=1, command=self.Editor.Reset)
-            undo_button = Button(left_options_frame, image=self.App.IconImage_Undo, font=self.App.adjust_font(12, bold=True), relief=RAISED, bd=1, command=self.Editor.Undo)
-            redo_button = Button(left_options_frame, image=self.App.IconImage_Redo, font=self.App.adjust_font(12, bold=True), relief=RAISED, bd=1, command=self.Editor.Redo)
+        self.App.place_component(zoom_in_button, 10, 9, 30, 30)
+        self.App.place_component(zoom_out_button, 50, 9, 30, 30)
+        self.App.place_component(zoom_percentage_label, 90, 9, 60, 30)
+        self.App.place_component(seperator1, 160, 9, 1, 30)
+        self.App.place_component(reset_button, 170, 9, 55, 30)
+        self.App.place_component(undo_button, 235, 9, 50, 30)
+        self.App.place_component(redo_button, 290, 9, 50, 30)
 
-            self.App.place_component(zoom_in_button, 10, 10, 30, 30)
-            self.App.place_component(zoom_out_button, 50, 10, 30, 30)
-            self.App.place_component(zoom_percentage_label, 90, 10, 60, 30)  
-            self.App.place_component(seperator1, 160, 10, 2, 30)
-            self.App.place_component(reset_button, 170, 10, 50, 30)
-            self.App.place_component(undo_button, 230, 10, 50, 30)
-            self.App.place_component(redo_button, 290, 10, 50, 30)
-            
-            right_options_frame = Frame(self.CoreTitleButtons)
-            self.App.place_component(right_options_frame, 1520-250, 15, 200, 50)
+        # ---------------- right: save / cancel ----------------
+        right_options_frame = Frame(self.CoreTitleButtons, bg=t["surface"])
+        self.App.place_component(right_options_frame, 1536-240, 15, 210, 50)
 
-            # CHANGED: Save and Cancel now do something
-            save_button = Button(right_options_frame, text="Save", font=self.App.adjust_font(12, bold=True), relief=RAISED, bd=1, command=self.SaveClicked)
-            cancel_button = Button(right_options_frame, text="Cancel", font=self.App.adjust_font(12, bold=True), relief=RAISED, bd=1, command=self.CancelClicked)
+        save_button = Button(right_options_frame, text="Save", font=self.App.adjust_font(12, bold=True),
+                             bg=t["accent"], fg="#ffffff", activebackground=t["accent_hover"], activeforeground="#ffffff",
+                             disabledforeground="#9aa0c8", relief=FLAT, bd=0, highlightthickness=0, cursor="hand2",
+                             state=state, command=self.SaveClicked)
+        cancel_button = Button(right_options_frame, text="Cancel", font=self.App.adjust_font(12, bold=True),
+                               bg=t["surface"], fg=t["danger"], activebackground="#fbeaea", activeforeground=t["danger"],
+                               disabledforeground=t["muted"], relief=FLAT, bd=0, cursor="hand2",
+                               highlightthickness=1, highlightbackground=t["border"],
+                               state=state, command=self.CancelClicked)
 
-            self.App.place_component(save_button, 10, 5, 100, 40)
-            self.App.place_component(cancel_button, 120, 5, 70, 40)
+        self.App.place_component(save_button, 10, 5, 100, 40)
+        self.App.place_component(cancel_button, 120, 5, 85, 40)
+
+        # ---------------- center "Open Image" box (where the canvas will appear) ----------------
+        if not has_image:
+            self.CreateOpenImagePlaceholder()
+
+    def CreateOpenImagePlaceholder(self):
+        t = self.t
+        self.OpenImageFrame = Frame(self.App.root, bg=t["surface"], highlightthickness=2, highlightbackground=t["border"])
+        self.App.place_component(self.OpenImageFrame, *self.App.CANVAS)
+
+        inner = Frame(self.OpenImageFrame, bg=t["surface"])
+        inner.place(relx=0.5, rely=0.5, anchor=CENTER)
+
+        open_img_button = Button(inner, image=self.App.IconImage_OpenFile, bg=t["accent_light"],
+                                 activebackground=t["trough"], relief=FLAT, bd=0, highlightthickness=0,
+                                 cursor="hand2", command=self.Editor.OpenImage)
+        open_img_button.pack(ipadx=18, ipady=18)
+
+        Label(inner, text="Open Image", font=self.App.adjust_font(16, bold=True), bg=t["surface"], fg=t["accent"]).pack(pady=(14, 2))
+        Label(inner, text="Choose a JPG or PNG to start editing", font=self.App.adjust_font(11), bg=t["surface"], fg=t["muted"]).pack()
 
     def GetButtons(self):
-        # NEW: top buttons by name (used in a few places)
+        # top buttons by name
         return {
             "Crop": self.crop_button,
             "Brightness": self.brightness_button,
@@ -91,20 +143,21 @@ class ActionBar(Frame):
         }
 
     def ClosePanel(self):
-        # NEW: un-highlight the active button, remove the side panel, center the canvas
+        # un-highlight the active button, remove the side panel, center the canvas
         current_button = self.App.activeTopButton.get()
 
         if current_button != "None":
-            self.GetButtons()[current_button].config(bg="SystemButtonFace", highlightbackground="black", relief=RAISED)
+            self.GetButtons()[current_button].config(bg=self.t["surface_alt"])
             self.App.activeTopButton.set("None")
 
         if self.PanelsFrame:
             self.PanelsFrame.destroy()
             self.PanelsFrame = None
 
-        self.App.canvas_frame.place_configure(x=1520/2-325, y=150)
+        self.App.place_configure(self.App.canvas_frame, self.App.CANVAS[0], self.App.CANVAS[1])
 
     def TopButtonClicked(self, button_name):
+        t = self.t
         current_button = self.App.activeTopButton.get()
         buttons = self.GetButtons()
 
@@ -114,17 +167,19 @@ class ActionBar(Frame):
             return
 
         if current_button != "None":
-            buttons[current_button].config(bg="SystemButtonFace", highlightbackground="black", relief=RAISED)
+            buttons[current_button].config(bg=t["surface_alt"])
 
-        buttons[button_name].config(bg="yellow", highlightbackground="black", relief=RAISED)
+        buttons[button_name].config(bg=t["accent_light"])
 
         if self.PanelsFrame:
             self.PanelsFrame.destroy()
 
-        self.App.canvas_frame.place_configure(x=1520/2-650, y=150)
+        self.App.place_configure(self.App.canvas_frame, self.App.CANVAS_X_WITH_PANEL, self.App.CANVAS[1])
 
-        self.PanelsFrame = Frame(self.App.root, bd=1, relief=SOLID, bg="red")
-        self.App.place_component(self.PanelsFrame, 1000, 150, 420, 650)
+        # sidebar on the right edge, a different shade from the background + accent strip
+        self.PanelsFrame = Frame(self.App.root, bg=t["surface"], highlightthickness=1, highlightbackground=t["border"])
+        self.App.place_component(self.PanelsFrame, *self.App.SIDEBAR)
+        Frame(self.PanelsFrame, bg=t["accent"], width=4).pack(side=LEFT, fill=Y)
 
         if button_name == "Crop":
             self.Panel = CropPanel(self.App, self.PanelsFrame)
@@ -143,13 +198,11 @@ class ActionBar(Frame):
         self.App.activeTopButton.set(button_name)
 
     def SaveClicked(self):
-        # NEW: open the save window
         if self.Editor.active_image is None:
             return
         SaveDialog(self.App)
 
     def CancelClicked(self):
-        # NEW: discard the image and go back to the "Open Image" screen
         doc = self.Editor.active_image
         if doc is None:
             return
@@ -166,5 +219,9 @@ class ActionBar(Frame):
         self.Editor.CloseImage()   # then remove the image -> back to Open Image screen
 
     def UpdateButtons(self, *args):
+        # rebuild the toolbar whenever hasImage changes
         self.CoreTitleButtons.destroy()
+        if self.OpenImageFrame:
+            self.OpenImageFrame.destroy()
+            self.OpenImageFrame = None
         self.CreateButtons()
