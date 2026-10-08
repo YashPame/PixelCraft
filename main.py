@@ -129,6 +129,20 @@ class PhotoEditorApp:
                      bg=t["accent"], activebackground=t["accent_hover"], troughcolor=t["trough"],
                      cursor="hand2", **kwargs)
 
+    def CreateMethodPicker(self, parent, variable):
+        # Two toggle tiles: "OpenCV" (works now) and "AI" (coming soon, can't be picked yet)
+        t = THEME
+        frame = Frame(parent, bg=t["sidebar"])
+        options = [("OpenCV", "opencv", NORMAL), ("AI  ·  Coming soon", "ai", DISABLED)]
+        for col, (text, value, state) in enumerate(options):
+            Radiobutton(frame, text=text, variable=variable, value=value, state=state,
+                        indicatoron=0, font=self.adjust_font(10, bold=True), width=16, pady=6,
+                        bg=t["surface"], fg=t["text"], selectcolor=t["accent_light"],
+                        activebackground=t["accent_light"], activeforeground=t["accent"],
+                        disabledforeground=t["muted"], relief=FLAT, offrelief=FLAT, bd=0, cursor="hand2",
+                        highlightthickness=1, highlightbackground=t["border"]).grid(row=0, column=col, padx=(0, 8))
+        return frame
+
     def UpdateButtons(self, *args):
         self.PanelsFrame.place_forget()
         if self.hasImage.get():

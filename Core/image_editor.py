@@ -25,6 +25,7 @@ MAX_HISTORY = 20
 MAX_ZOOM = 10.0
 MIN_ZOOM = 0.20
 ZOOM_STEP = 0.05
+FIT_MARGIN = 4      # small gap so a fitted image never shows scrollbars
 
 
 def Copy(value):
@@ -68,8 +69,8 @@ class Editor:
             return None
 
         self.active_image = image
+        self.App.hasImage.set(True)    # show the canvas first, so its real size can be measured
         self.SetInitialZoom()
-        self.App.hasImage.set(True)
         self.SyncSliders()
         self.ShowImage()
         return image
@@ -100,10 +101,13 @@ class Editor:
         self.canvas_image_id = self.canvas.create_image(self.image_x, self.image_y, anchor="nw", image=photo)
         self.canvas.configure(scrollregion=(0, 0, max(canvas_w, self.image_x + w), max(canvas_h, self.image_y + h)))
 
-        # if the crop panel is open, draw the crop box again on top of the image
-        crop_panel = self.GetPanel("crop_panel")
-        if crop_panel:
-            crop_panel.DrawCropBox()
+        # open panels draw their marks again on top of the image (crop box, eraser mask, ...)
+        if self.GetPanel("crop_panel"):
+            self.App.crop_panel.DrawCropBox()
+        if self.GetPanel("eraser_panel"):
+            self.App.eraser_panel.DrawMask()
+        if self.GetPanel("bg_panel"):
+            self.App.bg_panel.DrawBox()
 
     def CloseImage(self):
         # Discard the image and go back to the "Open Image" screen
@@ -118,9 +122,14 @@ class Editor:
         self.active_image.zoom_percentage.set(f"{round(zoom * 100, 2)}%")
 
     def SetInitialZoom(self):
-        # fit big images inside the canvas, small ones stay at 100%
+        # fit the whole image inside the canvas (big images shrink, small ones grow)
+        self.canvas.update_idletasks()
+        canvas_w, canvas_h = self.canvas.winfo_width(), self.canvas.winfo_height()
+        if canvas_w < 50 or canvas_h < 50:                 # canvas not on screen yet
+            canvas_w, canvas_h = CANVAS_WIDTH, CANVAS_HEIGHT
+
         h, w = self.active_image.image.shape[:2]
-        zoom = min(CANVAS_WIDTH / w, CANVAS_HEIGHT / h, 1.0)
+        zoom = min((canvas_w - FIT_MARGIN) / w, (canvas_h - FIT_MARGIN) / h, MAX_ZOOM)
         self.active_image.initial_zoom = zoom
         self.SetZoom(zoom)
 
@@ -230,13 +239,13 @@ class Editor:
 
     # ---------------- Rotate / Flip / Crop / Straighten ----------------
 
-    def Transform(self, func, refit=False):
-        # apply the same change to the photo and the drawing layer
+    def Transform(self, func, refit=False, layer_func=None):
+        # apply a change to the photo, and the same change (or layer_func) to the drawing layer
         doc = self.active_image
         self.SaveState()
         doc.base_image = func(doc.base_image)
         if doc.drawing_layer is not None:
-            doc.drawing_layer = func(doc.drawing_layer)
+            doc.drawing_layer = (layer_func or func)(doc.drawing_layer)
         self.ClearStraighten()
         self.RenderImage()
         if refit:
@@ -305,6 +314,80 @@ class Editor:
         doc.straighten_source = doc.drawing_source = None
         doc.straighten_angle = 0
         self.SyncSliders()
+
+    # ---------------- Magic Eraser / Background Remover (OpenCV) ----------------
+
+    def MagicErase(self, mask, radius=5):
+        # mask: white where the user painted (same size as the image). Fills it from the surroundings.
+        doc = self.active_image
+        if doc is None or mask is None or not mask.any():
+            return
+
+        mask = cv2.dilate(mask, np.ones((3, 3), np.uint8), iterations=2)   # cover the object edges too
+
+        def inpaint(img):
+            if img.ndim == 2 or img.shape[2] == 3:
+                return cv2.inpaint(img, mask, radius, cv2.INPAINT_TELEA)
+            # transparent PNG: fill the color and the transparency separately
+            color = cv2.inpaint(np.ascontiguousarray(img[:, :, :3]), mask, radius, cv2.INPAINT_TELEA)
+            alpha = cv2.inpaint(np.ascontiguousarray(img[:, :, 3]), mask, radius, cv2.INPAINT_TELEA)
+            return np.dstack([color, alpha])
+
+        def clear_drawing(layer):
+            # pen strokes under the mask are removed too
+            layer = layer.copy()
+            layer[mask > 0, 3] = 0
+            return layer
+
+        self.Transform(inpaint, layer_func=clear_drawing)
+
+    def RemoveBackground(self, left, top, right, bottom, iterations=5):
+        # box (fractions 0-1) around the subject -> everything outside the subject becomes transparent
+        doc = self.active_image
+        if doc is None:
+            return False
+
+        img = doc.base_image
+        h, w = img.shape[:2]
+        x1, y1, x2, y2 = int(left * w), int(top * h), int(right * w), int(bottom * h)
+        if x2 - x1 < 10 or y2 - y1 < 10:
+            return False
+
+        # GrabCut needs a BGR image
+        if img.ndim == 2:
+            bgr = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+        else:
+            bgr = np.ascontiguousarray(img[:, :, :3])
+
+        # work on a smaller copy (GrabCut is slow on big photos), max 600 px
+        scale = min(1.0, 600 / max(h, w))
+        small = cv2.resize(bgr, (max(1, int(w * scale)), max(1, int(h * scale))), interpolation=cv2.INTER_AREA)
+        rect = (int(x1 * scale), int(y1 * scale), max(1, int((x2 - x1) * scale)), max(1, int((y2 - y1) * scale)))
+
+        gc_mask = np.zeros(small.shape[:2], np.uint8)
+        bgd_model = np.zeros((1, 65), np.float64)
+        fgd_model = np.zeros((1, 65), np.float64)
+        try:
+            cv2.grabCut(small, gc_mask, rect, bgd_model, fgd_model, iterations, cv2.GC_INIT_WITH_RECT)
+        except cv2.error:
+            return False
+
+        # subject = "sure" + "probably" foreground
+        subject = np.where((gc_mask == cv2.GC_FGD) | (gc_mask == cv2.GC_PR_FGD), 255, 0).astype(np.uint8)
+        if not subject.any():
+            return False
+
+        # back to full size, with slightly soft edges
+        alpha = cv2.resize(subject, (w, h), interpolation=cv2.INTER_LINEAR)
+        alpha = cv2.GaussianBlur(alpha, (5, 5), 0)
+
+        def cut_out(image):
+            color = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR) if image.ndim == 2 else image[:, :, :3]
+            new_alpha = alpha if image.ndim == 2 or image.shape[2] == 3 else np.minimum(alpha, image[:, :, 3])
+            return np.dstack([color, new_alpha])
+
+        self.Transform(cut_out, layer_func=lambda layer: layer)   # drawing stays as it is
+        return True
 
     # ---------------- Light / Color adjustments ----------------
 

@@ -116,20 +116,63 @@ class ActionBar(Frame):
             self.CreateOpenImagePlaceholder()
 
     def CreateOpenImagePlaceholder(self):
+        # Welcome screen shown where the image will appear: dotted background,
+        # a dashed "open" card in the middle and the app's features listed below it
         t = self.t
-        self.OpenImageFrame = Frame(self.App.root, bg=t["surface"], highlightthickness=2, highlightbackground=t["border"])
+        W, H = self.App.scale_x(self.App.CANVAS[2]), self.App.scale_y(self.App.CANVAS[3])
+
+        self.OpenImageFrame = Canvas(self.App.root, bg=t["surface"], highlightthickness=1,
+                                     highlightbackground=t["border"])
         self.App.place_component(self.OpenImageFrame, *self.App.CANVAS)
+        c = self.OpenImageFrame
 
-        inner = Frame(self.OpenImageFrame, bg=t["surface"])
-        inner.place(relx=0.5, rely=0.5, anchor=CENTER)
+        # 1. soft dot grid in the background
+        gap = self.App.scale_x(26)
+        for x in range(gap // 2, W, gap):
+            for y in range(gap // 2, H, gap):
+                c.create_oval(x - 1, y - 1, x + 1, y + 1, fill=t["border"], outline="")
 
-        open_img_button = Button(inner, image=self.App.IconImage_OpenFile, bg=t["accent_light"],
+        # 2. dashed card in the middle (click anywhere on it to open an image)
+        cw, ch = self.App.scale_x(500), self.App.scale_y(290)
+        x1, y1 = (W - cw) // 2, (H - ch) // 2 - self.App.scale_y(30)
+        c.create_rectangle(x1, y1, x1 + cw, y1 + ch, fill=t["sidebar"], outline=t["accent"],
+                           width=2, dash=(8, 6), tags=("card", "card_bg"))
+
+        open_img_button = Button(c, image=self.App.IconImage_OpenFile, bg=t["accent_light"],
                                  activebackground=t["trough"], relief=FLAT, bd=0, highlightthickness=0,
                                  cursor="hand2", command=self.Editor.OpenImage)
-        open_img_button.pack(ipadx=18, ipady=18)
+        c.create_window(W // 2, y1 + ch * 0.36, window=open_img_button, width=self.App.scale_x(84), height=self.App.scale_y(84))
 
-        Label(inner, text="Open Image", font=self.App.adjust_font(16, bold=True), bg=t["surface"], fg=t["accent"]).pack(pady=(14, 2))
-        Label(inner, text="Choose a JPG or PNG to start editing", font=self.App.adjust_font(11), bg=t["surface"], fg=t["muted"]).pack()
+        c.create_text(W // 2, y1 + ch * 0.66, text="Open an Image", font=self.App.adjust_font(18, bold=True),
+                      fill=t["accent"], tags="card")
+        c.create_text(W // 2, y1 + ch * 0.80, text="Click here to choose a JPG or PNG from your computer",
+                      font=self.App.adjust_font(11), fill=t["muted"], tags="card")
+
+        # hover: card gets a little darker, click opens the file dialog
+        c.tag_bind("card", "<Enter>", lambda e: (c.itemconfig("card_bg", fill=t["accent_light"]), c.config(cursor="hand2")))
+        c.tag_bind("card", "<Leave>", lambda e: (c.itemconfig("card_bg", fill=t["sidebar"]), c.config(cursor="")))
+        c.tag_bind("card", "<Button-1>", lambda e: self.Editor.OpenImage())
+
+        # 3. what you can do, as small chips under the card
+        features = ["Crop & Rotate", "Light & Color", "Filters", "Draw", "Magic Eraser", "Remove Background"]
+        chip_y = y1 + ch + self.App.scale_y(55)
+        pad_x, pad_y, space = self.App.scale_x(12), self.App.scale_y(6), self.App.scale_x(10)
+
+        c.create_text(W // 2, chip_y - self.App.scale_y(32), text="WHAT YOU CAN DO",
+                      font=self.App.adjust_font(9, bold=True), fill=t["muted"])
+
+        texts = [c.create_text(0, chip_y, text=name, font=self.App.adjust_font(10, bold=True), fill=t["accent"], anchor="w")
+                 for name in features]
+        widths = [c.bbox(item)[2] - c.bbox(item)[0] for item in texts]
+        x = (W - (sum(widths) + len(widths) * 2 * pad_x + (len(widths) - 1) * space)) // 2
+
+        for item, width in zip(texts, widths):
+            c.move(item, x + pad_x, 0)
+            _, top, _, bottom = c.bbox(item)
+            chip = c.create_rectangle(x, top - pad_y, x + width + 2 * pad_x, bottom + pad_y,
+                                      fill=t["accent_light"], outline="")
+            c.tag_lower(chip, item)
+            x += width + 2 * pad_x + space
 
     def GetButtons(self):
         # top buttons by name
