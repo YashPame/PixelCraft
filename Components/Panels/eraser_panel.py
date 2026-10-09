@@ -13,7 +13,6 @@ class EraserPanel(Frame):
         self.Editor = App.editor
         self.canvas = self.Editor.canvas
 
-        self.method = StringVar(value="opencv")
         self.strokes = []          # painted strokes: (list of image points, brush size in image pixels)
         self.mask_shape = None     # image size when painting started (mask is cleared if it changes)
         self.last_point = None
@@ -23,10 +22,6 @@ class EraserPanel(Frame):
               bg=t["sidebar"], fg=t["accent"]).pack(anchor="w", padx=20, pady=(18, 0))
         Label(self, text="Paint over what you want to remove", font=self.App.adjust_font(10),
               bg=t["sidebar"], fg=t["muted"]).pack(anchor="w", padx=20, pady=(0, 6))
-
-        # ----- Method -----
-        section = self.Section("Method")
-        self.App.CreateMethodPicker(section, self.method).pack(anchor="w", pady=(8, 0))
 
         # ----- Brush size -----
         section = self.Section(None)

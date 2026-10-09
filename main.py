@@ -131,10 +131,13 @@ class PhotoEditorApp:
     def CreateSlider(self, parent, from_=-100, to=100, resolution=1, length=210, **kwargs):
         # Themed slider for all panels: thin light track, navy handle.
         # Use it like a normal slider: .set(), .get(), .config(command=...), .bind(...)
+        # Track height and handle size follow the screen, like the rest of the layout.
         t = THEME
         return Scale(parent, from_=from_, to=to, resolution=resolution, orient=HORIZONTAL,
-                     length=self.scale_x(length), showvalue=0, width=8, sliderlength=18,
-                     bd=0, highlightthickness=0, sliderrelief=FLAT,
+                     length=self.scale_x(length),
+                     width=max(6, round(8 * self.ratioH)),            # track height (8 px on the design screen)
+                     sliderlength=max(12, round(18 * self.ratioW)),   # handle width (18 px on the design screen)
+                     showvalue=0, bd=0, highlightthickness=0, sliderrelief=FLAT,
                      bg=t["accent"], activebackground=t["accent_hover"], troughcolor=t["trough"],
                      cursor="hand2", **kwargs)
 
@@ -142,7 +145,7 @@ class PhotoEditorApp:
         # Two toggle tiles: "OpenCV" (works now) and "AI" (coming soon, can't be picked yet)
         t = THEME
         frame = Frame(parent, bg=t["sidebar"])
-        options = [("OpenCV", "opencv", NORMAL), ("AI  ·  Coming soon", "ai", DISABLED)]
+        options = [("OpenCV", "opencv", NORMAL)]
         for col, (text, value, state) in enumerate(options):
             Radiobutton(frame, text=text, variable=variable, value=value, state=state,
                         indicatoron=0, font=self.adjust_font(10, bold=True), width=16, pady=6,

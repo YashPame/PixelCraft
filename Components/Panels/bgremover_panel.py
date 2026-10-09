@@ -1,8 +1,13 @@
 from tkinter import *
+from tkinter import filedialog, colorchooser
+
+# quick background colors (hex)
+BG_COLORS = ["#ffffff", "#000000", "#e9ecf3", "#2f3775", "#5aa9e6", "#7fc8a9", "#f6d365", "#f4a6b7"]
 
 
 class BackgroundRemover(Frame):
-    # Background Remover: draw a box around the subject, everything else becomes transparent
+    # Background Remover: draw a box around the subject, everything else becomes transparent,
+    # then pick a new background (none, color, blur or an image)
     def __init__(self, App, PanelFrame):
         self.t = App.theme                          # colors from main.py
         t = self.t
@@ -11,7 +16,6 @@ class BackgroundRemover(Frame):
         self.Editor = App.editor
         self.canvas = self.Editor.canvas
 
-        self.method = StringVar(value="opencv")
         self.box = None            # [left, top, right, bottom] as fractions of the image, None = no box
         self.start_x = 0
         self.start_y = 0
@@ -19,12 +23,8 @@ class BackgroundRemover(Frame):
         # ----- title -----
         Label(self, text="Remove Background", font=self.App.adjust_font(16, bold=True),
               bg=t["sidebar"], fg=t["accent"]).pack(anchor="w", padx=20, pady=(18, 0))
-        Label(self, text="Keep the subject, make the rest transparent", font=self.App.adjust_font(10),
+        Label(self, text="Keep the subject, replace or remove the rest", font=self.App.adjust_font(10),
               bg=t["sidebar"], fg=t["muted"]).pack(anchor="w", padx=20, pady=(0, 6))
-
-        # ----- Method -----
-        section = self.Section("Method")
-        self.App.CreateMethodPicker(section, self.method).pack(anchor="w", pady=(8, 0))
 
         # ----- Select subject -----
         section = self.Section("Select Subject")
@@ -47,9 +47,39 @@ class BackgroundRemover(Frame):
                             bg=t["sidebar"], fg=t["accent"])
         self.Status.pack(anchor="w", pady=(10, 0))
 
+        # ----- New background -----
+        section = self.Section("New Background")
+        Label(section, text="After removing, pick what goes behind the subject. You can switch any time.",
+              font=self.App.adjust_font(9), bg=t["sidebar"], fg=t["muted"],
+              wraplength=self.App.scale_x(320), justify=LEFT).pack(anchor="w", pady=(2, 8))
+
+        options = Frame(section, bg=t["sidebar"])
+        options.pack(fill=X)
+        for col, (text, command) in enumerate([("Transparent", lambda: self.ApplyBackground("none")),
+                                               ("Blur", lambda: self.ApplyBackground("blur")),
+                                               ("Image...", self.PickImage)]):
+            Button(options, text=text, font=self.App.adjust_font(10, bold=True),
+                   bg=t["surface"], fg=t["text"], activebackground=t["accent_light"], activeforeground=t["accent"],
+                   relief=FLAT, bd=0, pady=5, cursor="hand2", highlightthickness=1, highlightbackground=t["border"],
+                   command=command).grid(row=0, column=col, sticky="ew", padx=(0 if col == 0 else 6, 0))
+            options.grid_columnconfigure(col, weight=1)
+
+        # color swatches + custom color
+        Label(section, text="Color", font=self.App.adjust_font(10), bg=t["sidebar"], fg=t["text"]).pack(anchor="w", pady=(12, 4))
+        colors = Frame(section, bg=t["sidebar"])
+        colors.pack(anchor="w")
+        for col, color in enumerate(BG_COLORS):
+            swatch = Label(colors, bg=color, width=2, height=1, cursor="hand2",
+                           highlightthickness=1, highlightbackground=t["border"])
+            swatch.grid(row=0, column=col, padx=(0, 6))
+            swatch.bind("<Button-1>", lambda e, c=color: self.ApplyBackground("color", c))
+        Button(colors, text="+", font=self.App.adjust_font(10, bold=True), width=2,
+               bg=t["accent_light"], fg=t["accent"], activebackground=t["trough"], activeforeground=t["accent"],
+               relief=FLAT, bd=0, cursor="hand2", command=self.PickColor).grid(row=0, column=len(BG_COLORS))
+
         # ----- Tip -----
         section = self.Section(None)
-        Label(section, text="Tip: save as PNG to keep the transparent background. JPG turns it white/black.",
+        Label(section, text="Tip: save as PNG to keep a transparent background. JPG turns it white.",
               font=self.App.adjust_font(9), bg=t["sidebar"], fg=t["muted"],
               wraplength=self.App.scale_x(320), justify=LEFT).pack(anchor="w")
 
@@ -138,6 +168,41 @@ class BackgroundRemover(Frame):
             self.box = box
             self.DrawBox()
             self.Status.config(text="Couldn't find the subject, try a bigger box", fg=self.t["danger"])
+
+    # ---------------- New background ----------------
+
+    def ApplyBackground(self, mode, color=None, image_path=None):
+        if self.Editor.active_image is None:
+            return
+        color_bgr = None
+        if color:
+            r, g, b = int(color[1:3], 16), int(color[3:5], 16), int(color[5:7], 16)
+            color_bgr = (b, g, r)                          # OpenCV order
+
+        if self.Editor.SetBackground(mode, color_bgr=color_bgr, image_path=image_path):
+            names = {"none": "Transparent", "blur": "Blurred photo", "image": "Your image"}
+            name = color.upper() if mode == "color" else names[mode]
+            self.Status.config(text=f"Background: {name}", fg=self.t["accent"])
+        elif self.Editor.active_image.cutout is None:
+            self.Status.config(text="Remove the background first", fg=self.t["danger"])
+        else:
+            self.Status.config(text="Couldn't open that image", fg=self.t["danger"])
+
+    def PickColor(self):
+        result = colorchooser.askcolor(title="Background color", parent=self)
+        if result and result[1]:
+            self.ApplyBackground("color", result[1])
+
+    def PickImage(self):
+        if self.Editor.active_image is None:
+            return
+        if self.Editor.active_image.cutout is None:
+            self.Status.config(text="Remove the background first", fg=self.t["danger"])
+            return
+        path = filedialog.askopenfilename(title="Choose a background image", parent=self,
+                                          filetypes=[("Image Files", "*.jpg *.jpeg *.png *.bmp")])
+        if path:
+            self.ApplyBackground("image", image_path=path)
 
     # ---------------- Closing ----------------
 

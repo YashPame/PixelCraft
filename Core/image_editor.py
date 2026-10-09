@@ -15,13 +15,13 @@ ADJUSTMENT_ORDER = ["Exposure", "Brightness", "Contrast", "Highlights", "Shadows
 ENHANCERS = {"Brightness": ImageEnhance.Brightness, "Contrast": ImageEnhance.Contrast,
              "Saturation": ImageEnhance.Color, "Sharpness": ImageEnhance.Sharpness}
 
-# Everything saved for Undo / Redo (zoom is saved separately)
+# Everything saved for Undo / Redo (zoom is NOT saved: zooming only changes the view)
 STATE_FIELDS = ["base_image", "adjustments", "straighten_source", "straighten_angle",
-                "filter_name", "drawing_layer", "drawing_source"]
+                "filter_name", "drawing_layer", "drawing_source", "cutout"]
 
 CANVAS_WIDTH = 620
 CANVAS_HEIGHT = 620
-MAX_HISTORY = 20
+MAX_HISTORY = 10
 MAX_ZOOM = 10.0
 MIN_ZOOM = 0.20
 ZOOM_STEP = 0.05
@@ -68,6 +68,7 @@ class Editor:
             messagebox.showerror("Error", "Something Went Wrong, Unable to open File...")
             return None
 
+        image.cutout = None            # subject with transparent background (set by RemoveBackground)
         self.active_image = image
         self.App.hasImage.set(True)    # show the canvas first, so its real size can be measured
         self.SetInitialZoom()
@@ -91,10 +92,9 @@ class Editor:
             pil_image = pil_image.resize((int(pil_image.width * zoom), int(pil_image.height * zoom)))
 
         photo = ImageTk.PhotoImage(pil_image)
-        self.active_image.photo_image = photo      # keep it alive
-        self.canvas.delete("all")
-        self.canvas.update_idletasks()
 
+        # measure the canvas while the OLD picture is still showing (no empty frame on screen)
+        self.canvas.update_idletasks()
         canvas_w, canvas_h = self.canvas.winfo_width(), self.canvas.winfo_height()
         w, h = pil_image.width, pil_image.height
 
@@ -103,11 +103,24 @@ class Editor:
         self.image_y = max((canvas_h - h) // 2, 0)
         self.display_width, self.display_height = w, h
 
-        self.canvas_image_id = self.canvas.create_image(self.image_x, self.image_y, anchor="nw", image=photo)
+        # swap the picture inside the SAME canvas item instead of deleting and re-creating it
+        # (deleting first showed an empty canvas for a moment = flicker while sliding)
+        if self.canvas_image_id is not None and self.canvas.type(self.canvas_image_id) == "image":
+            self.canvas.itemconfig(self.canvas_image_id, image=photo)
+            self.canvas.coords(self.canvas_image_id, self.image_x, self.image_y)
+        else:
+            self.canvas_image_id = self.canvas.create_image(self.image_x, self.image_y, anchor="nw", image=photo)
+            self.canvas.tag_lower(self.canvas_image_id)          # crop box / masks stay on top
+        doc.photo_image = photo      # keep it alive (only now, so the old one is never missing)
+
         self.canvas.configure(scrollregion=(0, 0, max(canvas_w, self.image_x + w), max(canvas_h, self.image_y + h)))
 
         if original:
-            return   # no crop box / masks on top of the "before" photo
+            # no crop box / masks on top of the "before" photo (they come back on release)
+            for item in self.canvas.find_all():
+                if item != self.canvas_image_id:
+                    self.canvas.delete(item)
+            return
 
         # open panels draw their marks again on top of the image (crop box, eraser mask, ...)
         if self.GetPanel("crop_panel"):
@@ -121,6 +134,7 @@ class Editor:
         # Discard the image and go back to the "Open Image" screen
         self.active_image = None
         self.canvas.delete("all")
+        self.canvas_image_id = None
         self.App.hasImage.set(False)   # ActionBar and App update themselves from this
 
     # ---------------- Zoom / Reset ----------------
@@ -148,7 +162,6 @@ class Editor:
         # "Fit" button / Ctrl+0
         if self.active_image is None:
             return
-        self.SaveState()
         self.SetInitialZoom()
         self.ShowImage()
 
@@ -164,7 +177,6 @@ class Editor:
         if (step > 0 and zoom >= MAX_ZOOM) or (step < 0 and zoom <= MIN_ZOOM):
             return
         new_zoom = min(zoom + step, MAX_ZOOM) if step > 0 else max(zoom + step, MIN_ZOOM)
-        self.SaveState()
         self.SetZoom(new_zoom)
         self.ShowImage()
 
@@ -179,6 +191,7 @@ class Editor:
             return
         doc = self.active_image
         doc.ResetEdits()
+        doc.cutout = None
         doc.undo_stack.clear()
         doc.redo_stack.clear()
         self.SetInitialZoom()
@@ -189,16 +202,16 @@ class Editor:
 
     def GetState(self):
         doc = self.active_image
-        state = {name: Copy(getattr(doc, name)) for name in STATE_FIELDS}
-        state["zoom"] = doc.zoom.get()
-        return state
+        return {name: Copy(getattr(doc, name)) for name in STATE_FIELDS}
 
     def RestoreState(self, state):
         doc = self.active_image
+        old_size = doc.base_image.shape[:2]
         for name in STATE_FIELDS:
             setattr(doc, name, state[name])
-        self.SetZoom(state["zoom"])
         self.RenderImage()
+        if doc.base_image.shape[:2] != old_size:
+            self.SetInitialZoom()   # undo / redo of a crop or rotate: fit the new size
         self.SyncSliders()
         self.ShowImage()
 
@@ -263,13 +276,16 @@ class Editor:
 
     # ---------------- Rotate / Flip / Crop / Straighten ----------------
 
-    def Transform(self, func, refit=False, layer_func=None):
-        # apply a change to the photo, and the same change (or layer_func) to the drawing layer
+    def Transform(self, func, refit=False, layer_func=None, cutout_func=None):
+        # apply a change to the photo, and the same change (or layer_func / cutout_func)
+        # to the drawing layer and to the cut-out subject, so they always line up
         doc = self.active_image
         self.SaveState()
         doc.base_image = func(doc.base_image)
         if doc.drawing_layer is not None:
             doc.drawing_layer = (layer_func or func)(doc.drawing_layer)
+        if doc.cutout is not None:
+            doc.cutout = (cutout_func or func)(doc.cutout)
         self.ClearStraighten()
         self.RenderImage()
         if refit:
@@ -307,6 +323,7 @@ class Editor:
         if doc.straighten_source is None:
             doc.straighten_source = doc.base_image.copy()
             doc.drawing_source = Copy(doc.drawing_layer)
+            doc.cutout = None      # straightened photo no longer matches the cut-out subject
 
         doc.straighten_angle = angle
         doc.base_image = self.RotateAndFill(doc.straighten_source, angle)
@@ -410,7 +427,51 @@ class Editor:
             new_alpha = alpha if image.ndim == 2 or image.shape[2] == 3 else np.minimum(alpha, image[:, :, 3])
             return np.dstack([color, new_alpha])
 
-        self.Transform(cut_out, layer_func=lambda layer: layer)   # drawing stays as it is
+        self.Transform(cut_out, layer_func=lambda layer: layer, cutout_func=lambda c: c)   # drawing stays as it is
+        self.active_image.cutout = self.active_image.base_image.copy()    # keep the subject for "new background"
+        return True
+
+    def SetBackground(self, mode, color_bgr=None, image_path=None):
+        # Put something behind the cut-out subject:
+        #   "none"  -> transparent again       "color" -> one solid color
+        #   "blur"  -> the original photo, blurred (portrait look)
+        #   "image" -> another photo, filling the whole frame
+        # Always starts from the cut-out, so you can switch backgrounds as often as you like.
+        doc = self.active_image
+        if doc is None or doc.cutout is None or doc.cutout.shape[:2] != doc.base_image.shape[:2]:
+            return False
+
+        cutout = doc.cutout
+        h, w = cutout.shape[:2]
+
+        if mode == "none":
+            result = cutout.copy()
+        else:
+            if mode == "color":
+                background = np.full((h, w, 3), color_bgr, np.uint8)
+            elif mode == "blur":
+                # cut-out keeps the original colors everywhere, only the transparency changed
+                strength = max(15, (max(h, w) // 40) | 1)            # odd size, bigger photo = more blur
+                background = cv2.GaussianBlur(np.ascontiguousarray(cutout[:, :, :3]), (strength, strength), 0)
+            elif mode == "image":
+                # np.fromfile + imdecode also works with Hindi / non-English folder names on Windows
+                background = cv2.imdecode(np.fromfile(image_path, np.uint8), cv2.IMREAD_COLOR)
+                if background is None:
+                    return False
+                # "cover": scale so it fills the frame, then cut off what sticks out (centered)
+                bh, bw = background.shape[:2]
+                scale = max(w / bw, h / bh)
+                background = cv2.resize(background, (max(w, round(bw * scale)), max(h, round(bh * scale))),
+                                        interpolation=cv2.INTER_AREA if scale < 1 else cv2.INTER_CUBIC)
+                top, left = (background.shape[0] - h) // 2, (background.shape[1] - w) // 2
+                background = background[top:top + h, left:left + w]
+            else:
+                return False
+
+            alpha = cutout[:, :, 3:4].astype(np.float32) / 255     # 1 = subject, 0 = background
+            result = (cutout[:, :, :3] * alpha + background * (1 - alpha)).astype(np.uint8)
+
+        self.Transform(lambda img: result, layer_func=lambda layer: layer, cutout_func=lambda c: c)
         return True
 
     # ---------------- Light / Color adjustments ----------------

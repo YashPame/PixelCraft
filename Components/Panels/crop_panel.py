@@ -38,12 +38,13 @@ class CropPanel(Frame):
         flip_half = Frame(section, bg=t["sidebar"])
         flip_half.grid(row=0, column=2)
 
+        gap = self.App.scale_x(8)          # space between the two buttons, follows the screen
         self.SmallTitle(rotate_half, "Rotate").grid(row=0, column=0, columnspan=2, pady=(0, 6))
-        self.IconButton(rotate_half, self.App.IconImage_RotateLeft, self.RotateLeft).grid(row=1, column=0, padx=(0, 8))
+        self.IconButton(rotate_half, self.App.IconImage_RotateLeft, self.RotateLeft).grid(row=1, column=0, padx=(0, gap))
         self.IconButton(rotate_half, self.App.IconImage_RotateRight, self.RotateRight).grid(row=1, column=1)
 
         self.SmallTitle(flip_half, "Flip").grid(row=0, column=0, columnspan=2, pady=(0, 6))
-        self.IconButton(flip_half, self.App.IconImage_FlipHorizontal, self.FlipHorizontal).grid(row=1, column=0, padx=(0, 8))
+        self.IconButton(flip_half, self.App.IconImage_FlipHorizontal, self.FlipHorizontal).grid(row=1, column=0, padx=(0, gap))
         self.IconButton(flip_half, self.App.IconImage_FlipVertical, self.FlipVertical).grid(row=1, column=1)
 
         # ----- Straighten: angle value, slider and reset -----
@@ -122,9 +123,11 @@ class CropPanel(Frame):
         self.AngleLabel.config(text=f"{float(angle):.1f}°")
 
     def IconButton(self, parent, icon, command):
+        # square tile that grows / shrinks with the screen (44 px on the 1536 x 864 design)
         t = self.t
+        size = round(44 * min(self.App.ratioW, self.App.ratioH))
         return Button(parent, image=icon, command=command, bg=t["accent_light"], activebackground=t["trough"],
-                      relief=FLAT, bd=0, padx=6, pady=6, cursor="hand2")
+                      relief=FLAT, bd=0, width=size, height=size, cursor="hand2")
 
     # ---------------- Rotate / Flip ----------------
 
