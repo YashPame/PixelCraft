@@ -22,6 +22,12 @@ class LightPanel(Frame):
         Label(self, text="Adjust brightness, tones and colors", font=self.App.adjust_font(10),
               bg=t["sidebar"], fg=t["muted"]).pack(anchor="w", padx=20, pady=(0, 6))
 
+        # ----- Auto Enhance (one slider: 0 = off, 100 = full) -----
+        section = self.Section("Auto Enhance")
+        Label(section, text="Fixes contrast and color in one go", font=self.App.adjust_font(9),
+              bg=t["sidebar"], fg=t["muted"]).pack(anchor="w")
+        self.CreateOption(section, "Auto Enhance", from_=0, label="Strength")
+
         # ----- Light -----
         section = self.Section("Light")
         for option in LIGHT_OPTIONS:
@@ -51,19 +57,20 @@ class LightPanel(Frame):
               bg=t["sidebar"], fg=t["text"]).pack(anchor="w", pady=(0, 2))
         return section
 
-    def CreateOption(self, parent, option):
+    def CreateOption(self, parent, option, from_=-100, label=None):
+        # label: text shown next to the slider (default = option name)
         t = self.t
 
         # name on the left, value badge on the right, slider below
         top_row = Frame(parent, bg=t["sidebar"])
         top_row.pack(fill=X, pady=(6, 0))
-        Label(top_row, text=option, font=self.App.adjust_font(10),
+        Label(top_row, text=label or option, font=self.App.adjust_font(10),
               bg=t["sidebar"], fg=t["text"]).pack(side=LEFT)
         value_label = Label(top_row, text="0", font=self.App.adjust_font(9, bold=True),
                             bg=t["accent_light"], fg=t["accent"], width=4)
         value_label.pack(side=RIGHT)
 
-        slider = self.App.CreateSlider(parent, length=330, command=self.OnSlide)
+        slider = self.App.CreateSlider(parent, from_=from_, length=330, command=self.OnSlide)
         slider.pack(anchor="w", pady=(4, 0))
         slider.bind("<ButtonPress-1>", self.StartSlide)
         slider.bind("<ButtonRelease-1>", self.EndSlide)

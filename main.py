@@ -6,6 +6,7 @@ from Components.editor_canvas import EditorCanvas
 
 from Core.image_editor import Editor
 from Components.action_bar import ActionBar
+from Components.status_bar import StatusBar
 
 from Components.ui_icons_loader import UIIconsLoader
 from Components.variables import Variables
@@ -35,15 +36,19 @@ THEME = {
     "sidebar_text":  "#c9cdf0",   # small text on the blue sidebar header
 
     "danger":        "#d14b4b",   # cancel
+    "success":       "#3a9a5b",   # status bar: saved / no changes
+    "warning":       "#d9822b",   # status bar: unsaved edits
     "trough":        "#d9ddeb",   # slider track
 }
 
 # ---------------- LAYOUT (in 1536 x 864 design pixels) ----------------
 TOOLBAR_HEIGHT = 80
-CANVAS = (208, 145, 1120, 700)            # x, y, width, height (centered, no panel)
+STATUS_HEIGHT = 28                        # info bar at the bottom
+CANVAS = (208, 142, 1120, 680)            # x, y, width, height (centered, no panel)
 CANVAS_X_WITH_PANEL = 16                  # canvas moves left when a panel is open
 SIDEBAR_WIDTH = 370
 SIDEBAR = (DEFAULT_WIDTH - SIDEBAR_WIDTH, 50 + TOOLBAR_HEIGHT, SIDEBAR_WIDTH, DEFAULT_HEIGHT - 50 - TOOLBAR_HEIGHT)
+STATUS = (0, DEFAULT_HEIGHT - STATUS_HEIGHT, DEFAULT_WIDTH, STATUS_HEIGHT)   # bottom bar (full width)
 
 
 class PhotoEditorApp:
@@ -53,6 +58,7 @@ class PhotoEditorApp:
         self.CANVAS = CANVAS
         self.CANVAS_X_WITH_PANEL = CANVAS_X_WITH_PANEL
         self.SIDEBAR = SIDEBAR
+        self.STATUS = STATUS
 
         self.ratioW, self.ratioH = self.setRatio()
         self.root.geometry(f'{str(int(DEFAULT_WIDTH*self.ratioW))}x{str(int(DEFAULT_HEIGHT*self.ratioH))}+0+0')
@@ -76,6 +82,9 @@ class PhotoEditorApp:
 
         self.action_bar = ActionBar(self)
         self.place_component(self.action_bar, 0, 50, DEFAULT_WIDTH, TOOLBAR_HEIGHT)
+
+        self.status_bar = StatusBar(self)
+        self.place_component(self.status_bar, *STATUS)
 
     def ApplyTheme(self):
         # Default colors for every widget (panels, dialogs, ...) unless a widget sets its own
@@ -151,11 +160,14 @@ class PhotoEditorApp:
             self.canvas_frame.place_forget()
 
     def setRatio(self):
+        # how much bigger / smaller this screen is than the 1536 x 864 design
+        # (screen / design: a 1366 px screen gives 0.89 -> everything shrinks to fit,
+        #  a 1920 px screen gives 1.25 -> everything grows to fill the screen)
         screen_width = self.root.winfo_screenwidth()
         screen_height = self.root.winfo_screenheight()
 
-        ratioW = DEFAULT_WIDTH / screen_width
-        ratioH = DEFAULT_HEIGHT / screen_height
+        ratioW = screen_width / DEFAULT_WIDTH
+        ratioH = screen_height / DEFAULT_HEIGHT
         return ratioW, ratioH
 
     def place_component(self, widget, x, y, w, h, **kwargs):
@@ -171,8 +183,12 @@ class PhotoEditorApp:
         return int(y*self.ratioH)
 
     def adjust_font(self, font, font_name=THEME["font"], bold=False):
+        # Size in PIXELS (negative number), not points, so text grows/shrinks exactly like the layout
+        # and Windows display scaling (125%, 150%) can't make it bigger than the buttons.
+        # 4/3 = how many pixels 1 point was on the design screen.
         # {} keeps names with spaces (like "Segoe UI") together
-        fontstr = f"{{{font_name}}} {int(font*self.ratioH)}"
+        pixels = max(6, round(font * 4 / 3 * self.ratioH))
+        fontstr = f"{{{font_name}}} {-pixels}"
         if bold:
             fontstr += " bold"
         return fontstr

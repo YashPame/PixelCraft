@@ -75,13 +75,18 @@ class Editor:
         self.ShowImage()
         return image
 
-    def ShowImage(self):
-        if self.active_image is None:
+    def ShowImage(self, original=False):
+        # original=True shows the untouched photo (Before/After button)
+        doc = self.active_image
+        if doc is None:
             return
 
-        pil_image = Image.fromarray(ToRGB(self.active_image.image))
+        image = doc.orignal_image if original else doc.image
+        pil_image = Image.fromarray(ToRGB(image))
 
-        zoom = self.active_image.zoom.get()
+        zoom = doc.zoom.get()
+        if original and image.shape[:2] != doc.image.shape[:2]:
+            zoom = self.FitZoom(image)        # cropped / rotated since: fit the original on its own
         if zoom != 1.0:
             pil_image = pil_image.resize((int(pil_image.width * zoom), int(pil_image.height * zoom)))
 
@@ -100,6 +105,9 @@ class Editor:
 
         self.canvas_image_id = self.canvas.create_image(self.image_x, self.image_y, anchor="nw", image=photo)
         self.canvas.configure(scrollregion=(0, 0, max(canvas_w, self.image_x + w), max(canvas_h, self.image_y + h)))
+
+        if original:
+            return   # no crop box / masks on top of the "before" photo
 
         # open panels draw their marks again on top of the image (crop box, eraser mask, ...)
         if self.GetPanel("crop_panel"):
@@ -121,17 +129,33 @@ class Editor:
         self.active_image.zoom.set(zoom)
         self.active_image.zoom_percentage.set(f"{round(zoom * 100, 2)}%")
 
-    def SetInitialZoom(self):
-        # fit the whole image inside the canvas (big images shrink, small ones grow)
+    def FitZoom(self, image):
+        # zoom that fits the whole image inside the canvas (big images shrink, small ones grow)
         self.canvas.update_idletasks()
         canvas_w, canvas_h = self.canvas.winfo_width(), self.canvas.winfo_height()
         if canvas_w < 50 or canvas_h < 50:                 # canvas not on screen yet
             canvas_w, canvas_h = CANVAS_WIDTH, CANVAS_HEIGHT
 
-        h, w = self.active_image.image.shape[:2]
-        zoom = min((canvas_w - FIT_MARGIN) / w, (canvas_h - FIT_MARGIN) / h, MAX_ZOOM)
+        h, w = image.shape[:2]
+        return min((canvas_w - FIT_MARGIN) / w, (canvas_h - FIT_MARGIN) / h, MAX_ZOOM)
+
+    def SetInitialZoom(self):
+        zoom = self.FitZoom(self.active_image.image)
         self.active_image.initial_zoom = zoom
         self.SetZoom(zoom)
+
+    def FitToScreen(self):
+        # "Fit" button / Ctrl+0
+        if self.active_image is None:
+            return
+        self.SaveState()
+        self.SetInitialZoom()
+        self.ShowImage()
+
+    def ShowOriginal(self, show):
+        # Before/After button: show=True while the button is held down
+        if self.active_image is not None:
+            self.ShowImage(original=show)
 
     def ChangeZoom(self, step):
         if self.active_image is None:

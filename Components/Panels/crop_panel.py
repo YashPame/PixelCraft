@@ -2,6 +2,10 @@ from tkinter import *
 from tkinter import ttk
 
 
+# crop shapes: name -> width / height (None = any shape)
+RATIOS = {"Free": None, "1:1": 1, "4:5": 4 / 5, "16:9": 16 / 9, "9:16": 9 / 16}
+
+
 class CropPanel(Frame):
     def __init__(self, App, PanelFrame):
         self.t = App.theme                          # colors from main.py
@@ -16,6 +20,7 @@ class CropPanel(Frame):
         self.box = None
         self.start_x = 0
         self.start_y = 0
+        self.ratio = StringVar(value="Free")    # crop shape: Free, 1:1, 4:5, 16:9, 9:16
 
         # ----- title -----
         Label(self, text="Crop & Rotate", font=self.App.adjust_font(16, bold=True),
@@ -69,6 +74,19 @@ class CropPanel(Frame):
 
         # ----- Crop -----
         section = self.Section("Crop")
+
+        # ratio presets (for Instagram, YouTube, stories, ...)
+        ratio_row = Frame(section, bg=t["sidebar"])
+        ratio_row.pack(fill=X, pady=(8, 8))
+        for col, name in enumerate(RATIOS):
+            Radiobutton(ratio_row, text=name, variable=self.ratio, value=name, command=self.RatioChanged,
+                        indicatoron=0, font=self.App.adjust_font(9, bold=True), pady=4,
+                        bg=t["surface"], fg=t["text"], selectcolor=t["accent_light"],
+                        activebackground=t["accent_light"], activeforeground=t["accent"],
+                        relief=FLAT, offrelief=FLAT, bd=0, cursor="hand2",
+                        highlightthickness=1, highlightbackground=t["border"]).grid(row=0, column=col, sticky="ew", padx=(0, 6))
+            ratio_row.grid_columnconfigure(col, weight=1)
+
         Label(section, text="Click and drag on the image to select the area", font=self.App.adjust_font(10),
               bg=t["sidebar"], fg=t["muted"], wraplength=self.App.scale_x(290), justify=LEFT).pack(anchor="w", pady=(4, 10))
         Button(section, text="Apply Crop", font=self.App.adjust_font(11, bold=True),
@@ -175,6 +193,7 @@ class CropPanel(Frame):
         if self.Editor.active_image is None:
             return
         x, y = self.ToFraction(event)
+        x, y = self.KeepRatio(x, y)
 
         left = min(self.start_x, x)
         right = max(self.start_x, x)
@@ -182,6 +201,47 @@ class CropPanel(Frame):
         bottom = max(self.start_y, y)
 
         self.box = [left, top, right, bottom]
+        self.DrawCropBox()
+
+    # ---------------- Ratio presets ----------------
+
+    def ImageSize(self):
+        h, w = self.Editor.active_image.base_image.shape[:2]
+        return w, h
+
+    def KeepRatio(self, x, y):
+        # change the dragged corner (x, y) so the box keeps the chosen shape and stays inside the image
+        ratio = RATIOS[self.ratio.get()]
+        if ratio is None:
+            return x, y
+
+        W, H = self.ImageSize()
+        w_px = abs(x - self.start_x) * W            # box size in image pixels
+        h_px = abs(y - self.start_y) * H
+        if w_px > h_px * ratio:
+            w_px = h_px * ratio
+        else:
+            h_px = w_px / ratio
+
+        dir_x = 1 if x >= self.start_x else -1      # which way the mouse is dragging
+        dir_y = 1 if y >= self.start_y else -1
+
+        # room left inside the image in that direction; shrink the box if it does not fit
+        room_w = ((1 - self.start_x) if dir_x > 0 else self.start_x) * W
+        room_h = ((1 - self.start_y) if dir_y > 0 else self.start_y) * H
+        scale = min(1, room_w / w_px if w_px else 1, room_h / h_px if h_px else 1)
+
+        return self.start_x + dir_x * w_px * scale / W, self.start_y + dir_y * h_px * scale / H
+
+    def RatioChanged(self):
+        # picking a shape shows the biggest centered box of that shape right away
+        ratio = RATIOS[self.ratio.get()]
+        if ratio is None or self.Editor.active_image is None:
+            return
+        W, H = self.ImageSize()
+        w_px, h_px = (H * ratio, H) if W / H > ratio else (W, W / ratio)
+        left, top = (1 - w_px / W) / 2, (1 - h_px / H) / 2
+        self.box = [left, top, 1 - left, 1 - top]
         self.DrawCropBox()
 
     def DrawCropBox(self):

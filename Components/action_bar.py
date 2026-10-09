@@ -27,6 +27,7 @@ class ActionBar(Frame):
 
         self.CreateButtons()
         self.App.hasImage.trace_add("write", self.UpdateButtons)
+        self.BindShortcuts()
 
     # ---------------- styles ----------------
 
@@ -69,7 +70,7 @@ class ActionBar(Frame):
         # ---------------- left: zoom / reset / undo / redo ----------------
         left_options_frame = Frame(self.CoreTitleButtons, bg=t["surface_alt"],
                                    highlightthickness=1, highlightbackground=t["border"])
-        self.App.place_component(left_options_frame, 30, 15, 355, 50)
+        self.App.place_component(left_options_frame, 30, 15, 410, 50)
 
         if has_image and self.Editor.active_image is not None:
             zoom_var = self.Editor.active_image.zoom_percentage
@@ -82,6 +83,7 @@ class ActionBar(Frame):
                                       bg=t["surface_alt"], fg=t["text"], disabledforeground=t["muted"], state=state)
         seperator1 = Frame(left_options_frame, bg=t["border"])
 
+        fit_button = Button(left_options_frame, text="Fit", state=state, command=self.Editor.FitToScreen, **self.TextButtonStyle())
         reset_button = Button(left_options_frame, text="Reset", state=state, command=self.Editor.Reset, **self.TextButtonStyle())
         undo_button = Button(left_options_frame, image=self.App.IconImage_Undo, state=state, command=self.Editor.Undo, **tool)
         redo_button = Button(left_options_frame, image=self.App.IconImage_Redo, state=state, command=self.Editor.Redo, **tool)
@@ -89,14 +91,22 @@ class ActionBar(Frame):
         self.App.place_component(zoom_in_button, 10, 9, 30, 30)
         self.App.place_component(zoom_out_button, 50, 9, 30, 30)
         self.App.place_component(zoom_percentage_label, 90, 9, 60, 30)
-        self.App.place_component(seperator1, 160, 9, 1, 30)
-        self.App.place_component(reset_button, 170, 9, 55, 30)
-        self.App.place_component(undo_button, 235, 9, 50, 30)
-        self.App.place_component(redo_button, 290, 9, 50, 30)
+        self.App.place_component(fit_button, 155, 9, 45, 30)
+        self.App.place_component(seperator1, 210, 9, 1, 30)
+        self.App.place_component(reset_button, 220, 9, 60, 30)
+        self.App.place_component(undo_button, 290, 9, 50, 30)
+        self.App.place_component(redo_button, 345, 9, 50, 30)
 
         # ---------------- right: save / cancel ----------------
         right_options_frame = Frame(self.CoreTitleButtons, bg=t["surface"])
-        self.App.place_component(right_options_frame, 1536-240, 15, 210, 50)
+        self.App.place_component(right_options_frame, 1536-370, 15, 340, 50)
+
+        # hold down to see the original photo, let go to see your edit
+        compare_button = Button(right_options_frame, text="Before / After", state=state,
+                                **self.TextButtonStyle(10))
+        compare_button.config(highlightthickness=1, highlightbackground=t["border"])
+        compare_button.bind("<ButtonPress-1>", lambda e: self.Editor.ShowOriginal(True))
+        compare_button.bind("<ButtonRelease-1>", lambda e: self.Editor.ShowOriginal(False))
 
         save_button = Button(right_options_frame, text="Save", font=self.App.adjust_font(12, bold=True),
                              bg=t["accent"], fg="#ffffff", activebackground=t["accent_hover"], activeforeground="#ffffff",
@@ -108,8 +118,9 @@ class ActionBar(Frame):
                                highlightthickness=1, highlightbackground=t["border"],
                                state=state, command=self.CancelClicked)
 
-        self.App.place_component(save_button, 10, 5, 100, 40)
-        self.App.place_component(cancel_button, 120, 5, 85, 40)
+        self.App.place_component(compare_button, 10, 5, 120, 40)
+        self.App.place_component(save_button, 140, 5, 100, 40)
+        self.App.place_component(cancel_button, 250, 5, 85, 40)
 
         # ---------------- center "Open Image" box (where the canvas will appear) ----------------
         if not has_image:
@@ -198,6 +209,7 @@ class ActionBar(Frame):
             self.PanelsFrame = None
 
         self.App.place_configure(self.App.canvas_frame, self.App.CANVAS[0], self.App.CANVAS[1])
+        self.App.status_bar.Resize(panel_open=False)
 
     def TopButtonClicked(self, button_name):
         t = self.t
@@ -222,6 +234,7 @@ class ActionBar(Frame):
         # sidebar on the right edge, a different shade from the background + accent strip
         self.PanelsFrame = Frame(self.App.root, bg=t["sidebar"], highlightthickness=1, highlightbackground=t["border"])
         self.App.place_component(self.PanelsFrame, *self.App.SIDEBAR)
+        self.App.status_bar.Resize(panel_open=True)     # bottom bar stops where the sidebar starts
         # Frame(self.PanelsFrame, bg=t["accent"], width=4).pack(side=LEFT, fill=Y)
 
         if button_name == "Crop":
@@ -260,6 +273,59 @@ class ActionBar(Frame):
 
         self.ClosePanel()          # close the side panel first (it uses the canvas)
         self.Editor.CloseImage()   # then remove the image -> back to Open Image screen
+
+    # ---------------- Keyboard shortcuts / mouse wheel ----------------
+
+    def BindShortcuts(self):
+        root = self.App.root
+        keys = {
+            "<Control-z>": self.Editor.Undo,         "<Control-Z>": self.Editor.Undo,
+            "<Control-y>": self.Editor.Redo,         "<Control-Y>": self.Editor.Redo,
+            "<Control-s>": self.SaveClicked,         "<Control-S>": self.SaveClicked,
+            "<Control-o>": self.OpenShortcut,        "<Control-O>": self.OpenShortcut,
+            "<Control-Key-0>": self.Editor.FitToScreen,
+            "<plus>": self.Editor.ZoomIn,            "<equal>": self.Editor.ZoomIn,     "<KP_Add>": self.Editor.ZoomIn,
+            "<minus>": self.Editor.ZoomOut,          "<KP_Subtract>": self.Editor.ZoomOut,
+        }
+        for key, action in keys.items():
+            root.bind_all(key, lambda e, a=action: self.RunShortcut(e, a))
+
+        # mouse wheel over the image zooms (with or without Ctrl).
+        # bind_all because Windows sends wheel events to the focused widget, not the one under the mouse
+        for seq in ("<MouseWheel>", "<Control-MouseWheel>",                                        # Windows / Mac
+                    "<Button-4>", "<Button-5>", "<Control-Button-4>", "<Control-Button-5>"):   # Linux
+            root.bind_all(seq, self.OnMouseWheel)
+
+    def OnMouseWheel(self, event):
+        # only zoom when the mouse is over the image canvas (not over a panel or dialog)
+        canvas = self.Editor.canvas
+        try:
+            under_mouse = canvas.winfo_containing(event.x_root, event.y_root)
+        except (KeyError, TclError):
+            return
+        if under_mouse is not canvas:
+            return
+
+        if event.num == 4 or event.delta > 0:
+            self.Editor.ZoomIn()
+        else:
+            self.Editor.ZoomOut()
+        return "break"
+
+    def RunShortcut(self, event, action):
+        # ignore keys while typing in a box or when another window (like Save) is in front
+        widget = event.widget
+        if isinstance(widget, str) or isinstance(widget, (Entry, ttk.Entry)):
+            return
+        if widget.winfo_toplevel() is not self.App.root:
+            return
+        action()
+        return "break"
+
+    def OpenShortcut(self):
+        # Ctrl+O works on the welcome screen (same as the Open Image card)
+        if self.Editor.active_image is None:
+            self.Editor.OpenImage()
 
     def UpdateButtons(self, *args):
         # rebuild the toolbar whenever hasImage changes

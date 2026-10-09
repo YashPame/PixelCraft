@@ -7,8 +7,10 @@ FILTERS = ["Original", "Grayscale", "Sepia",
            "Warm", "Cool", "Fade",
            "Invert", "Sketch", "Emboss"]
 
-PREVIEW_SIZE = 90        # preview box size in pixels (smaller so 3 fit in the sidebar)
+PREVIEW_SIZE = 60        # smallest preview box size in pixels (the real size follows the sidebar width)
 COLUMNS = 3
+CELL_PAD = 5             # space around each preview
+CELL_BORDER = 3          # selected-filter border
 SELECTED_COLOR = "#2f3775"
 
 class FiltersPanel(Frame):
@@ -17,6 +19,11 @@ class FiltersPanel(Frame):
         super().__init__(PanelFrame, bg=t["sidebar"])
         self.App = App
         self.Editor = App.editor
+
+        # preview size from the real sidebar width, so 3 columns always fill it (small or big screen)
+        sidebar_width = self.App.scale_x(self.App.SIDEBAR[2])
+        side_margin = 2 * self.App.scale_x(20)
+        self.preview_size = max(PREVIEW_SIZE, (sidebar_width - side_margin) // COLUMNS - 2 * (CELL_PAD + CELL_BORDER))
 
         self.cells = {}      # filter name -> (cell frame, image label)
         self.photos = {}     # keep PhotoImages alive (Tkinter deletes them otherwise)
@@ -40,10 +47,10 @@ class FiltersPanel(Frame):
             row, col = divmod(index, COLUMNS)
 
             # the border (highlight) of this frame shows which filter is selected
-            cell = Frame(grid, bg=t["sidebar"], highlightthickness=3, highlightbackground=self.normal_color, cursor="hand2")
-            cell.grid(row=row, column=col, padx=5, pady=5)
+            cell = Frame(grid, bg=t["sidebar"], highlightthickness=CELL_BORDER, highlightbackground=self.normal_color, cursor="hand2")
+            cell.grid(row=row, column=col, padx=CELL_PAD, pady=CELL_PAD)
 
-            image_label = Label(cell, width=PREVIEW_SIZE, height=PREVIEW_SIZE, bg=t["trough"])
+            image_label = Label(cell, width=self.preview_size, height=self.preview_size, bg=t["trough"])
             image_label.pack()
 
             name_label = Label(cell, text=name, font=self.App.adjust_font(9, bold=True), bg=t["sidebar"], fg=t["text"])
@@ -78,7 +85,7 @@ class FiltersPanel(Frame):
         # small copy of the image so 12 previews are fast
         base = doc.base_image
         h, w = base.shape[:2]
-        scale = PREVIEW_SIZE / max(h, w)
+        scale = self.preview_size / max(h, w)
         small = cv2.resize(base, (max(1, int(w * scale)), max(1, int(h * scale))),
                            interpolation=cv2.INTER_AREA)
 
