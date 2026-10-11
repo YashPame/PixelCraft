@@ -6,21 +6,18 @@ from Core.image_editor import Editor
 class EditorCanvas(Frame):
     def __init__(self, App):
         t = App.theme                                   # colors from main.py
-        super().__init__(App.root, bg=t["canvas_bg"])
+        super().__init__(App.root)
 
         self.App = App
         self.CreateScrollbarStyle()
 
-        self.canvas = Canvas(self, bg=t["canvas_bg"], highlightthickness=0, bd=0)
+        self.canvas = Canvas(self, bd=0)
         self.canvas.grid(row=0, column=0, sticky="nsew")
 
-        # thin modern scrollbars (no arrows), they hide when the whole image fits
-        self.y_scrollbar = ttk.Scrollbar(self, orient="vertical", command=self.canvas.yview,
-                                         style="Editor.Vertical.TScrollbar")
+        self.y_scrollbar = ttk.Scrollbar(self, orient="vertical", command=self.canvas.yview, style="Editor.Vertical.TScrollbar")
         self.y_scrollbar.grid(row=0, column=1, sticky="ns")
 
-        self.x_scrollbar = ttk.Scrollbar(self, orient="horizontal", command=self.canvas.xview,
-                                         style="Editor.Horizontal.TScrollbar")
+        self.x_scrollbar = ttk.Scrollbar(self, orient="horizontal", command=self.canvas.xview, style="Editor.Horizontal.TScrollbar")
         self.x_scrollbar.grid(row=1, column=0, sticky="ew")
 
         self.canvas.configure(
@@ -31,36 +28,36 @@ class EditorCanvas(Frame):
         self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(0, weight=1)
 
-        # drag the image around (when it is bigger than the canvas)
-        self.SetupPanning()
+        self.SetupPanning()                 # Panning: drag the image with the mouse, even when a panel is open
 
         self.App.editor = Editor(App, self.canvas)
 
     # ---------------- Scrollbars ----------------
 
     def CreateScrollbarStyle(self):
-        # scrollbar = just a rounded-looking thumb on a dark track, like modern apps
+        # scrollbar = only a flat thumb on a dark track (no arrows), like modern apps
         t = self.App.theme
+        thumb, hover = "#5b6275", "#8a92ab"                       # thumb color, thumb color on hover
+        states = [("pressed", t["accent_light"]), ("active", hover)]
         style = ttk.Style()
-        for orient in ("Vertical", "Horizontal"):
+        for orient, sticky in (("Vertical", "ns"), ("Horizontal", "ew")):
             name = f"Editor.{orient}.TScrollbar"
             # layout without the arrow buttons: only the track and the thumb
-            style.layout(name, [(f"{orient}.Scrollbar.trough", {
-                "sticky": "ns" if orient == "Vertical" else "ew",
-                "children": [(f"{orient}.Scrollbar.thumb", {"expand": "1", "sticky": "nswe"})]})])
-            style.configure(name, troughcolor=t["canvas_bg"], background="#5b6275",
-                            bordercolor=t["canvas_bg"], lightcolor="#5b6275", darkcolor="#5b6275",
-                            gripcount=0, arrowsize=10, relief=FLAT)
-            style.map(name, background=[("pressed", t["accent_light"]), ("active", "#8a92ab")],
-                      lightcolor=[("pressed", t["accent_light"]), ("active", "#8a92ab")],
-                      darkcolor=[("pressed", t["accent_light"]), ("active", "#8a92ab")])
+            style.layout(name, [(f"{orient}.Scrollbar.trough", {"sticky": sticky,
+                         "children": [(f"{orient}.Scrollbar.thumb", {"expand": "1", "sticky": "nswe"})]})])
+            # lightcolor / darkcolor = clam's 3D edges; same as the thumb = flat look
+            style.configure(name, troughcolor=t["canvas_bg"], bordercolor=t["canvas_bg"], background=thumb, lightcolor=thumb, darkcolor=thumb, gripcount=0, arrowsize=10, relief=FLAT)
+            style.map(name, background=states, lightcolor=states, darkcolor=states)
 
     def AutoHide(self, scrollbar, first, last):
-        # whole image visible in that direction -> hide the scrollbar
-        if float(first) <= 0.0 and float(last) >= 1.0:
-            scrollbar.grid_remove()
-        else:
-            scrollbar.grid()
+        # Hide the scrollbar when image is visible in that direction
+        needed = float(first) > 0.0 or float(last) < 1.0
+        shown = scrollbar.winfo_manager() == "grid"            # "" after grid_remove()
+        if needed != shown:
+            if needed:
+                scrollbar.grid()
+            else:
+                scrollbar.grid_remove()
         scrollbar.set(first, last)
 
     # ---------------- Drag to move the image ----------------
@@ -69,12 +66,12 @@ class EditorCanvas(Frame):
         # right or middle mouse button: always drags the image
         # left mouse button: drags the image only when no tool panel is using the canvas
         #   (crop / draw / eraser panels use the left button themselves)
+        self.panning = False
         self.canvas.bindtags(("Pan",) + self.canvas.bindtags())   # our own tag, panels can't overwrite it
         for button in (1, 2, 3):
             self.canvas.bind_class("Pan", f"<ButtonPress-{button}>", lambda e, b=button: self.StartPan(e, b))
-            self.canvas.bind_class("Pan", f"<B{button}-Motion>", lambda e, b=button: self.DoPan(e, b))
-            self.canvas.bind_class("Pan", f"<ButtonRelease-{button}>", lambda e, b=button: self.EndPan(e, b))
-        self.panning = False
+            self.canvas.bind_class("Pan", f"<B{button}-Motion>", self.DoPan)
+            self.canvas.bind_class("Pan", f"<ButtonRelease-{button}>", self.EndPan)
 
     def CanPan(self, button):
         if self.App.editor.active_image is None:
@@ -92,11 +89,11 @@ class EditorCanvas(Frame):
             self.canvas.scan_mark(event.x, event.y)
             self.canvas.config(cursor="fleur")
 
-    def DoPan(self, event, button):
+    def DoPan(self, event):
         if self.panning:
             self.canvas.scan_dragto(event.x, event.y, gain=1)
 
-    def EndPan(self, event, button):
+    def EndPan(self, event):
         if self.panning:
             self.panning = False
             # back to the panel's cursor (crosshair for draw / crop) or normal

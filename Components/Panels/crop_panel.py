@@ -1,5 +1,4 @@
 from tkinter import *
-from tkinter import ttk
 
 
 # crop shapes: name -> width / height (None = any shape)

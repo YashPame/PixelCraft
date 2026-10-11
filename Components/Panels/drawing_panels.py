@@ -1,5 +1,5 @@
 from tkinter import *
-from tkinter import ttk, colorchooser
+from tkinter import colorchooser
 
 # size_mul: brush size = Size slider x size_mul
 TOOLS = {

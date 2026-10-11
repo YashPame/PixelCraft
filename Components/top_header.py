@@ -1,6 +1,5 @@
 from tkinter import *
 from tkinter import font
-from tkinter import messagebox
 
 APP_NAME = "PixelCraft"
 VERSION = "1.0"

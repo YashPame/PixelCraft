@@ -14,8 +14,7 @@ from Components.variables import Variables
 DEFAULT_WIDTH = 1536
 DEFAULT_HEIGHT = 864
 
-# ---------------- THEME ----------------
-# One place for every color / font used in the app.
+
 THEME = {
     "font":          "Segoe UI",
 
@@ -28,11 +27,11 @@ THEME = {
     "text":          "#1e2235",   # normal text
     "muted":         "#7c829a",   # hints, disabled text
 
-    "accent":        "#2f3775",   # main color (same blue as the panel titles)
+    "accent":        "#2f3775",   # main color
     "accent_hover":  "#232a5c",
     "accent_light":  "#e2e6f8",   # selected tool / hover
 
-    "sidebar":       "#f2f3fb",   # side panel background (light lavender tint)
+    "sidebar":       "#f2f3fb",   # side panel background 
     "sidebar_text":  "#c9cdf0",   # small text on the blue sidebar header
 
     "danger":        "#d14b4b",   # cancel
@@ -116,22 +115,15 @@ class PhotoEditorApp:
         style = ttk.Style(r)
         style.theme_use("clam")
         style.configure(".", background=t["surface"], foreground=t["text"], font=(t["font"], 10))
-        style.configure("Horizontal.TScale", background=t["accent"], troughcolor=t["trough"],
-                        bordercolor=t["trough"], lightcolor=t["accent"], darkcolor=t["accent"])
+        style.configure("Horizontal.TScale", background=t["accent"], troughcolor=t["trough"], bordercolor=t["trough"], lightcolor=t["accent"], darkcolor=t["accent"])
         style.map("Horizontal.TScale", background=[("active", t["accent_hover"])])
         style.configure("TButton", background=t["surface_alt"], bordercolor=t["border"], padding=6)
         style.map("TButton", background=[("active", t["accent_light"])])
-        style.configure("TCombobox", fieldbackground=t["surface_alt"], background=t["surface_alt"],
-                        bordercolor=t["border"], arrowcolor=t["accent"])
-        style.configure("Vertical.TScrollbar", background=t["surface_alt"], troughcolor=t["surface"],
-                        bordercolor=t["surface"], arrowcolor=t["muted"])
-        style.configure("Horizontal.TScrollbar", background=t["surface_alt"], troughcolor=t["surface"],
-                        bordercolor=t["surface"], arrowcolor=t["muted"])
+        style.configure("TCombobox", fieldbackground=t["surface_alt"], background=t["surface_alt"], bordercolor=t["border"], arrowcolor=t["accent"])
+        style.configure("Vertical.TScrollbar", background=t["surface_alt"], troughcolor=t["surface"], bordercolor=t["surface"], arrowcolor=t["muted"])
+        style.configure("Horizontal.TScrollbar", background=t["surface_alt"], troughcolor=t["surface"], bordercolor=t["surface"], arrowcolor=t["muted"])
 
     def CreateSlider(self, parent, from_=-100, to=100, resolution=1, length=210, **kwargs):
-        # Themed slider for all panels: thin light track, navy handle.
-        # Use it like a normal slider: .set(), .get(), .config(command=...), .bind(...)
-        # Track height and handle size follow the screen, like the rest of the layout.
         t = THEME
         return Scale(parent, from_=from_, to=to, resolution=resolution, orient=HORIZONTAL,
                      length=self.scale_x(length),
@@ -140,20 +132,6 @@ class PhotoEditorApp:
                      showvalue=0, bd=0, highlightthickness=0, sliderrelief=FLAT,
                      bg=t["accent"], activebackground=t["accent_hover"], troughcolor=t["trough"],
                      cursor="hand2", **kwargs)
-
-    def CreateMethodPicker(self, parent, variable):
-        # Two toggle tiles: "OpenCV" (works now) and "AI" (coming soon, can't be picked yet)
-        t = THEME
-        frame = Frame(parent, bg=t["sidebar"])
-        options = [("OpenCV", "opencv", NORMAL)]
-        for col, (text, value, state) in enumerate(options):
-            Radiobutton(frame, text=text, variable=variable, value=value, state=state,
-                        indicatoron=0, font=self.adjust_font(10, bold=True), width=16, pady=6,
-                        bg=t["surface"], fg=t["text"], selectcolor=t["accent_light"],
-                        activebackground=t["accent_light"], activeforeground=t["accent"],
-                        disabledforeground=t["muted"], relief=FLAT, offrelief=FLAT, bd=0, cursor="hand2",
-                        highlightthickness=1, highlightbackground=t["border"]).grid(row=0, column=col, padx=(0, 8))
-        return frame
 
     def UpdateButtons(self, *args):
         self.PanelsFrame.place_forget()
@@ -186,10 +164,6 @@ class PhotoEditorApp:
         return int(y*self.ratioH)
 
     def adjust_font(self, font, font_name=THEME["font"], bold=False):
-        # Size in PIXELS (negative number), not points, so text grows/shrinks exactly like the layout
-        # and Windows display scaling (125%, 150%) can't make it bigger than the buttons.
-        # 4/3 = how many pixels 1 point was on the design screen.
-        # {} keeps names with spaces (like "Segoe UI") together
         pixels = max(6, round(font * 4 / 3 * self.ratioH))
         fontstr = f"{{{font_name}}} {-pixels}"
         if bold:

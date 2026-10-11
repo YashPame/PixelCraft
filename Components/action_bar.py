@@ -1,7 +1,5 @@
 from tkinter import *
 from tkinter import ttk, messagebox
-from PIL import Image, ImageTk
-from tkinter import filedialog
 from Components.Panels.crop_panel import CropPanel
 from Components.Panels.light_panel import LightPanel
 from Components.Panels.drawing_panels import DrawingPanel
@@ -13,8 +11,10 @@ from Components.save_dialog import SaveDialog
 
 class ActionBar(Frame):
     def __init__(self, App):
+        # Default colors / fonts / button look come from main.py (ApplyTheme), so only the
+        # things that are DIFFERENT from those defaults are set in this file.
         self.t = App.theme                                # colors from main.py
-        super().__init__(App.root, bg=self.t["surface"])
+        super().__init__(App.root)
 
         self.App = App
         self.Editor = self.App.editor
@@ -33,21 +33,19 @@ class ActionBar(Frame):
 
     def ToolStyle(self):
         # icon buttons (tools, zoom, undo, redo)
-        t = self.t
-        return dict(bg=t["surface_alt"], activebackground=t["accent_light"], relief=FLAT, bd=0,
-                    highlightthickness=0, cursor="hand2")
+        # (light grey bg, light blue when pressed, flat, hand cursor = defaults from main.py)
+        return dict(bd=0, highlightthickness=0)
 
     def TextButtonStyle(self, size=11):
-        t = self.t
-        return dict(font=self.App.adjust_font(size, bold=True), fg=t["text"], disabledforeground=t["muted"],
-                    **self.ToolStyle())
+        # text buttons: same as icon buttons + a bold, screen-scaled font
+        return dict(font=self.App.adjust_font(size, bold=True), **self.ToolStyle())
 
     def CreateButtons(self):
         t = self.t
         has_image = self.App.hasImage.get()
         state = NORMAL if has_image else DISABLED
 
-        self.CoreTitleButtons = Frame(self, bg=t["surface"])
+        self.CoreTitleButtons = Frame(self)
         self.CoreTitleButtons.place(x=0, y=0, relwidth=1, relheight=1, height=-1)
 
         # ---------------- top tool buttons (always shown, disabled without an image) ----------------
@@ -80,7 +78,7 @@ class ActionBar(Frame):
         zoom_in_button = Button(left_options_frame, image=self.App.IconImage_ZoomIn, state=state, command=self.Editor.ZoomIn, **tool)
         zoom_out_button = Button(left_options_frame, image=self.App.IconImage_ZoomOut, state=state, command=self.Editor.ZoomOut, **tool)
         zoom_percentage_label = Label(left_options_frame, textvariable=zoom_var, font=self.App.adjust_font(11, bold=True),
-                                      bg=t["surface_alt"], fg=t["text"], disabledforeground=t["muted"], state=state)
+                                      bg=t["surface_alt"], state=state)
         seperator1 = Frame(left_options_frame, bg=t["border"])
 
         fit_button = Button(left_options_frame, text="Fit", state=state, command=self.Editor.FitToScreen, **self.TextButtonStyle())
@@ -98,7 +96,7 @@ class ActionBar(Frame):
         self.App.place_component(redo_button, 345, 9, 50, 30)
 
         # ---------------- right: save / cancel ----------------
-        right_options_frame = Frame(self.CoreTitleButtons, bg=t["surface"])
+        right_options_frame = Frame(self.CoreTitleButtons)
         self.App.place_component(right_options_frame, 1536-370, 15, 340, 50)
 
         # hold down to see the original photo, let go to see your edit
@@ -110,12 +108,11 @@ class ActionBar(Frame):
 
         save_button = Button(right_options_frame, text="Save", font=self.App.adjust_font(12, bold=True),
                              bg=t["accent"], fg="#ffffff", activebackground=t["accent_hover"], activeforeground="#ffffff",
-                             disabledforeground="#9aa0c8", relief=FLAT, bd=0, highlightthickness=0, cursor="hand2",
+                             disabledforeground="#9aa0c8", bd=0, highlightthickness=0,
                              state=state, command=self.SaveClicked)
         cancel_button = Button(right_options_frame, text="Cancel", font=self.App.adjust_font(12, bold=True),
                                bg=t["surface"], fg=t["danger"], activebackground="#fbeaea", activeforeground=t["danger"],
-                               disabledforeground=t["muted"], relief=FLAT, bd=0, cursor="hand2",
-                               highlightthickness=1, highlightbackground=t["border"],
+                               bd=0, highlightthickness=1, highlightbackground=t["border"],
                                state=state, command=self.CancelClicked)
 
         self.App.place_component(compare_button, 10, 5, 120, 40)
@@ -150,8 +147,8 @@ class ActionBar(Frame):
                            width=2, dash=(8, 6), tags=("card", "card_bg"))
 
         open_img_button = Button(c, image=self.App.IconImage_OpenFile, bg=t["accent_light"],
-                                 activebackground=t["trough"], relief=FLAT, bd=0, highlightthickness=0,
-                                 cursor="hand2", command=self.Editor.OpenImage)
+                                 activebackground=t["trough"], bd=0, highlightthickness=0,
+                                 command=self.Editor.OpenImage)
         c.create_window(W // 2, y1 + ch * 0.36, window=open_img_button, width=self.App.scale_x(84), height=self.App.scale_y(84))
 
         c.create_text(W // 2, y1 + ch * 0.66, text="Open an Image", font=self.App.adjust_font(18, bold=True),
@@ -231,11 +228,10 @@ class ActionBar(Frame):
 
         self.App.place_configure(self.App.canvas_frame, self.App.CANVAS_X_WITH_PANEL, self.App.CANVAS[1])
 
-        # sidebar on the right edge, a different shade from the background + accent strip
+        # sidebar on the right edge, a different shade from the background
         self.PanelsFrame = Frame(self.App.root, bg=t["sidebar"], highlightthickness=1, highlightbackground=t["border"])
         self.App.place_component(self.PanelsFrame, *self.App.SIDEBAR)
         self.App.status_bar.Resize(panel_open=True)     # bottom bar stops where the sidebar starts
-        # Frame(self.PanelsFrame, bg=t["accent"], width=4).pack(side=LEFT, fill=Y)
 
         if button_name == "Crop":
             self.Panel = CropPanel(self.App, self.PanelsFrame)
