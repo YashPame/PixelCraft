@@ -1,6 +1,6 @@
 from tkinter import *
 
-LIGHT_OPTIONS = ["Brightness", "Exposure", "Contrast", "Highlights", "Shadows", "Vignette"]
+LIGHT_OPTIONS = ["Brightness", "Exposure", "Contrast", "Shadows", "Vignette"]
 COLOR_OPTIONS = ["Saturation", "Warmth", "Tint", "Sharpness"]
 
 
