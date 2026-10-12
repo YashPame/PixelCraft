@@ -5,22 +5,20 @@ from PIL import Image, ImageTk
 
 
 def resource_path(relative_path):
-    # When running as an .exe, PyInstaller unpacks files to a temp folder (sys._MEIPASS).
-    # When running normally, use the project folder.
-    base_path = getattr(sys, "_MEIPASS", os.path.abspath("."))
+    # MEIPASS: Multipackage Executable Instance PAth Support System
+    base_path = getattr(sys, "_MEIPASS", os.path.abspath(".")) # When running as an .exe, PyInstaller unpacks files to a temp folder (sys._MEIPASS).
     return os.path.join(base_path, relative_path)
 
 
 def LoadIcon(file_name, size):
     path = resource_path(os.path.join("Icons", file_name))
-    image = Image.open(path).resize((size, size), Image.Resampling.LANCZOS)
+    image = Image.open(path).resize((size, size), Image.Resampling.LANCZOS) # LANCZOS = high-quality downsampling filter that keeps the edges of the icon sharp and clear when resizing to smaller dimensions.
     return ImageTk.PhotoImage(image)
 
 
 class UIIconsLoader():
     def __init__(self, App):
         self.App = App
-        # icons grow / shrink with the screen, like the buttons they sit in
         self.scale = min(App.ratioW, App.ratioH)
 
         self.App.IconImage_OpenFile = self.Icon("open_file.png", 30)
@@ -43,5 +41,4 @@ class UIIconsLoader():
         self.App.IconImage_FlipVertical = self.Icon("vertical_flip.png", 30)
 
     def Icon(self, file_name, size):
-        # size is for the 1536 x 864 design screen
         return LoadIcon(file_name, max(12, round(size * self.scale)))

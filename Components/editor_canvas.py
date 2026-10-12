@@ -5,7 +5,6 @@ from Core.image_editor import Editor
 
 class EditorCanvas(Frame):
     def __init__(self, App):
-        t = App.theme                                   # colors from main.py
         super().__init__(App.root)
 
         self.App = App
@@ -43,8 +42,7 @@ class EditorCanvas(Frame):
         for orient, sticky in (("Vertical", "ns"), ("Horizontal", "ew")):
             name = f"Editor.{orient}.TScrollbar"
             # layout without the arrow buttons: only the track and the thumb
-            style.layout(name, [(f"{orient}.Scrollbar.trough", {"sticky": sticky,
-                         "children": [(f"{orient}.Scrollbar.thumb", {"expand": "1", "sticky": "nswe"})]})])
+            style.layout(name, [(f"{orient}.Scrollbar.trough", {"sticky": sticky, "children": [(f"{orient}.Scrollbar.thumb", {"expand": "1", "sticky": "nswe"})]})])
             # lightcolor / darkcolor = clam's 3D edges; same as the thumb = flat look
             style.configure(name, troughcolor=t["canvas_bg"], bordercolor=t["canvas_bg"], background=thumb, lightcolor=thumb, darkcolor=thumb, gripcount=0, arrowsize=10, relief=FLAT)
             style.map(name, background=states, lightcolor=states, darkcolor=states)

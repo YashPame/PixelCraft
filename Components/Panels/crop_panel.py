@@ -58,7 +58,7 @@ class CropPanel(Frame):
         slider_row = Frame(section, bg=t["sidebar"])
         slider_row.pack(fill=X, pady=(10, 0))
 
-        self.AngleSlider = self.App.CreateSlider(slider_row, from_=-45, to=45, resolution=0.5)
+        self.AngleSlider = self.App.CreateSlider(slider_row, from_=-90, to=90, resolution=0.5)
         if self.Editor.active_image is not None:
             self.AngleSlider.set(self.Editor.active_image.straighten_angle)
             self.ShowAngle(self.Editor.active_image.straighten_angle)

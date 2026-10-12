@@ -16,7 +16,7 @@ COLORS = ["#000000", "#ffffff", "#e53935", "#fb8c00", "#fdd835", "#43a047",
 THEME = "#2f3775"
 
 PREVIEW_WIDTH = 300
-PREVIEW_HEIGHT = 90
+PREVIEW_HEIGHT = 80
 MAX_PREVIEW_SIZE = PREVIEW_HEIGHT - 16     # biggest brush the preview box can show
 
 

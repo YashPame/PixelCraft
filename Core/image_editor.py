@@ -8,14 +8,14 @@ from PIL import Image, ImageEnhance, ImageFilter, ImageOps, ImageTk
 from Core.image_document import ImageDocument
 
 # Order in which adjustments are applied (always the same, whatever the slider order)
-ADJUSTMENT_ORDER = ["Exposure", "Brightness", "Contrast", "Highlights", "Shadows",
+ADJUSTMENT_ORDER = ["Auto Enhance", "Exposure", "Brightness", "Contrast", "Highlights", "Shadows",
                     "Saturation", "Warmth", "Tint", "Sharpness", "Vignette"]
 
 # Sliders that are a simple PIL "enhance" (factor 0 = none, 1 = original, 2 = double)
 ENHANCERS = {"Brightness": ImageEnhance.Brightness, "Contrast": ImageEnhance.Contrast,
              "Saturation": ImageEnhance.Color, "Sharpness": ImageEnhance.Sharpness}
 
-# Everything saved for Undo / Redo (zoom is NOT saved: zooming only changes the view)
+# Everything saved for Undo / Redo 
 STATE_FIELDS = ["base_image", "adjustments", "straighten_source", "straighten_angle",
                 "filter_name", "drawing_layer", "drawing_source", "cutout"]
 
@@ -57,8 +57,7 @@ class Editor:
     # ---------------- Open / Show / Close ----------------
 
     def OpenImage(self):
-        file_path = filedialog.askopenfilename(title="Open Image",
-                                               filetypes=[("Image Files", "*.jpg *.jpeg *.png")])
+        file_path = filedialog.askopenfilename(title="Open Image", filetypes=[("Image Files", "*.jpg *.jpeg *.png")])
         if not file_path:
             return None
 
@@ -521,6 +520,11 @@ class Editor:
             # negative = dark edges, positive = white edges
             edge = Image.new("RGB", pil_img.size, (0, 0, 0) if value < 0 else (255, 255, 255))
             return Image.composite(edge, pil_img, mask)
+
+        if parameter == "Auto Enhance":
+            enhanced = ImageOps.autocontrast(pil_img, cutoff=1)
+            enhanced = ImageEnhance.Color(enhanced).enhance(1.2)
+            return Image.blend(pil_img, enhanced, value / 100)
 
         return pil_img
 

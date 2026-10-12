@@ -18,8 +18,7 @@ class ImageDocument:
         self.ResetEdits()
 
     def ResetEdits(self):
-        # back to the original photo (used when opening and by Reset)
-        self.image = self.orignal_image.copy()             # what is shown (everything applied)
+        self.image = self.orignal_image.copy()             # Current Image Status
         self.base_image = self.orignal_image.copy()        # after rotate / flip / crop / straighten
         self.processed_image = self.orignal_image.copy()   # base + adjustments + filter (no drawing)
 
