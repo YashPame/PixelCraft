@@ -18,17 +18,17 @@ class ImageDocument:
         self.ResetEdits()
 
     def ResetEdits(self):
-        self.image = self.orignal_image.copy()             # Current Image Status
-        self.base_image = self.orignal_image.copy()        # after rotate / flip / crop / straighten
-        self.processed_image = self.orignal_image.copy()   # base + adjustments + filter (no drawing)
+        self.image = self.orignal_image.copy()             
+        self.base_image = self.orignal_image.copy()       
+        self.processed_image = self.orignal_image.copy()   
 
         self.adjustments = {}
         self.filter_name = "Original"
 
-        self.straighten_source = None   # base image before straightening
+        self.straighten_source = None   
         self.straighten_angle = 0
 
-        self.drawing_layer = None       # transparent BGRA layer with pen strokes (same size as base_image)
-        self.drawing_source = None      # drawing layer before straightening
+        self.drawing_layer = None       
+        self.drawing_source = None      
 
         self.modified = False

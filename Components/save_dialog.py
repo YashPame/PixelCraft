@@ -17,24 +17,21 @@ class SaveDialog(Toplevel):
         self.title("Save Image")
         self.resizable(False, False)
 
-        t = self.t = App.theme                     # colors from main.py
+        t = self.t = App.theme                     
         self.config(bg=t["sidebar"])
 
-        # keep this window on top of the (fullscreen) app and block clicks behind it
         self.transient(App.root)
         self.attributes("-topmost", True)
         self.grab_set()
 
-        # original size of the edited image
         self.orig_h, self.orig_w = self.doc.image.shape[:2]
-        self.updating = False   # stops width/height from updating each other forever
+        self.updating = False   
 
         Label(self, text="Save Image", font=self.App.adjust_font(16, bold=True),
               bg=t["sidebar"], fg=t["accent"]).pack(anchor="w", padx=24, pady=(18, 0))
         Label(self, text=f"{self.doc.file_name}  ·  {self.orig_w} × {self.orig_h} px", font=self.App.adjust_font(10),
               bg=t["sidebar"], fg=t["muted"]).pack(anchor="w", padx=24, pady=(0, 4))
 
-        # ----- Format -----
         self.SectionLabel("Format")
         self.format_var = StringVar(value="PNG")
         formatFrame = Frame(self, bg=t["sidebar"])
@@ -47,7 +44,6 @@ class SaveDialog(Toplevel):
                         relief=FLAT, offrelief=FLAT, bd=0, cursor="hand2",
                         highlightthickness=1, highlightbackground=t["border"]).pack(side=LEFT, padx=(0, 8))
 
-        # ----- Resolution -----
         self.SectionLabel("Resolution (pixels)")
 
         sizeFrame = Frame(self, bg=t["sidebar"])
@@ -70,7 +66,6 @@ class SaveDialog(Toplevel):
                     bg=t["sidebar"], fg=t["text"], activebackground=t["sidebar"], activeforeground=t["accent"],
                     selectcolor=t["surface"], bd=0, highlightthickness=0, cursor="hand2").pack(anchor="w", padx=20, pady=(8, 0))
 
-        # quick size buttons
         percentFrame = Frame(self, bg=t["sidebar"])
         percentFrame.pack(anchor="w", padx=24, pady=(8, 0))
         for percent in (100, 75, 50, 25):
@@ -79,11 +74,9 @@ class SaveDialog(Toplevel):
                    relief=FLAT, bd=0, pady=3, cursor="hand2",
                    command=lambda p=percent: self.SetPercent(p)).pack(side=LEFT, padx=(0, 8))
 
-        # when one size changes, update the other (if keep aspect ratio is on)
         self.width_var.trace_add("write", self.WidthChanged)
         self.height_var.trace_add("write", self.HeightChanged)
 
-        # ----- Quality (JPG only) -----
         qualityTitle = self.SectionLabel("Quality (JPG only)")
         self.QualityLabel = Label(qualityTitle, text="95", font=self.App.adjust_font(9, bold=True),
                                   bg=t["accent_light"], fg=t["accent"], width=4)
@@ -94,7 +87,6 @@ class SaveDialog(Toplevel):
         self.quality.set(95)
         self.quality.pack(anchor="w", padx=24, pady=(10, 0))
 
-        # ----- Buttons -----
         Frame(self, bg=t["border"], height=1).pack(fill=X, padx=24, pady=(18, 0))
         buttonFrame = Frame(self, bg=t["sidebar"])
         buttonFrame.pack(fill=X, padx=24, pady=(14, 20))
@@ -110,10 +102,8 @@ class SaveDialog(Toplevel):
         self.FormatChanged()
         self.CenterOnApp()
 
-    # ---------------- Helpers ----------------
 
     def SectionLabel(self, text):
-        # thin line, then a small title (same look as the side panels); returns the title row
         t = self.t
         Frame(self, bg=t["border"], height=1).pack(fill=X, padx=24, pady=(14, 0))
         row = Frame(self, bg=t["sidebar"])
@@ -129,10 +119,9 @@ class SaveDialog(Toplevel):
         self.geometry(f"+{x}+{y}")
 
     def FormatChanged(self):
-        # quality only matters for JPG (PNG and BMP are lossless)
         t = self.t
         if self.format_var.get() not in ("JPG", "JPEG"):
-            self.quality.config(state=DISABLED, bg=t["muted"])        # grey handle = can't change
+            self.quality.config(state=DISABLED, bg=t["muted"])       
             self.QualityLabel.config(bg=t["trough"], fg=t["muted"])
         else:
             self.quality.config(state=NORMAL, bg=t["accent"])
@@ -150,7 +139,7 @@ class SaveDialog(Toplevel):
         try:
             w = int(self.width_var.get())
         except ValueError:
-            return   # empty or not a number while typing
+            return  
         self.updating = True
         self.height_var.set(str(max(1, round(w * self.orig_h / self.orig_w))))
         self.updating = False
@@ -166,10 +155,7 @@ class SaveDialog(Toplevel):
         self.width_var.set(str(max(1, round(h * self.orig_w / self.orig_h))))
         self.updating = False
 
-    # ---------------- Save ----------------
-
     def SaveClicked(self):
-        # 1. check the size
         try:
             width = int(self.width_var.get())
             height = int(self.height_var.get())
@@ -181,7 +167,6 @@ class SaveDialog(Toplevel):
             messagebox.showerror("Invalid size", "Width and height must be between 1 and 20000.", parent=self)
             return
 
-        # 2. ask where to save and the file name (normal Windows "Save As" window)
         ext = self.format_var.get().lower()
         name = os.path.splitext(self.doc.file_name)[0] + "_edited"
 
@@ -195,12 +180,10 @@ class SaveDialog(Toplevel):
         )
 
         if not path:
-            return   # user pressed Cancel in the Save As window
+            return   
 
-        # make sure the file ends with the chosen format
         path = os.path.splitext(path)[0] + f".{ext}"
 
-        # 3. resize (INTER_AREA looks best when shrinking, INTER_CUBIC when enlarging)
         img = self.doc.image
         if (width, height) != (self.orig_w, self.orig_h):
             if width < self.orig_w:
@@ -209,21 +192,18 @@ class SaveDialog(Toplevel):
                 method = cv2.INTER_CUBIC
             img = cv2.resize(img, (width, height), interpolation=method)
 
-        # 4. JPG and BMP have no transparency: put transparent parts on a white background
         if ext in ("jpg", "jpeg", "bmp") and img.ndim == 3 and img.shape[2] == 4:
             alpha = img[:, :, 3:4].astype(np.float32) / 255
             white = np.full_like(img[:, :, :3], 255, dtype=np.float32)
             img = (img[:, :, :3] * alpha + white * (1 - alpha)).astype(np.uint8)
 
-        # 5. save
         if ext == "png":
             params = [cv2.IMWRITE_PNG_COMPRESSION, 3]
         elif ext == "bmp":
-            params = []                     # BMP has no settings
+            params = []                     
         else:
             params = [cv2.IMWRITE_JPEG_QUALITY, int(self.quality.get())]
 
-        # imencode + tofile works with any folder/file name (cv2.imwrite fails on non-English names)
         ok, buffer = cv2.imencode(f".{ext}", img, params)
         if not ok:
             messagebox.showerror("Error", "Could not save the image.", parent=self)
@@ -235,6 +215,6 @@ class SaveDialog(Toplevel):
             messagebox.showerror("Error", f"Could not save the image.\n{e}", parent=self)
             return
 
-        self.doc.modified = False   # saved, so Cancel won't ask again
+        self.doc.modified = False   
         messagebox.showinfo("Saved", f"Image saved to:\n{path}", parent=self)
         self.destroy()

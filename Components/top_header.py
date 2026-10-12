@@ -78,7 +78,6 @@ class Header(Frame):
             card.pack(side=LEFT, padx=(0, 12))
             Label(card, text=name, font=f(11, bold=True), bg=t["surface"], fg=t["text"]).pack(padx=14, pady=8)
 
-        # center on the app
         win.update_idletasks()
         root = self.App.root
         x = root.winfo_x() + (root.winfo_width() - win.winfo_width()) // 2

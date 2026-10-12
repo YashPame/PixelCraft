@@ -27,30 +27,24 @@ class EditorCanvas(Frame):
         self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(0, weight=1)
 
-        self.SetupPanning()                 # Panning: drag the image with the mouse, even when a panel is open
+        self.SetupPanning()                
 
         self.App.editor = Editor(App, self.canvas)
 
-    # ---------------- Scrollbars ----------------
-
     def CreateScrollbarStyle(self):
-        # scrollbar = only a flat thumb on a dark track (no arrows), like modern apps
         t = self.App.theme
-        thumb, hover = "#5b6275", "#8a92ab"                       # thumb color, thumb color on hover
+        thumb, hover = "#5b6275", "#8a92ab"                      
         states = [("pressed", t["accent_light"]), ("active", hover)]
         style = ttk.Style()
         for orient, sticky in (("Vertical", "ns"), ("Horizontal", "ew")):
             name = f"Editor.{orient}.TScrollbar"
-            # layout without the arrow buttons: only the track and the thumb
             style.layout(name, [(f"{orient}.Scrollbar.trough", {"sticky": sticky, "children": [(f"{orient}.Scrollbar.thumb", {"expand": "1", "sticky": "nswe"})]})])
-            # lightcolor / darkcolor = clam's 3D edges; same as the thumb = flat look
             style.configure(name, troughcolor=t["canvas_bg"], bordercolor=t["canvas_bg"], background=thumb, lightcolor=thumb, darkcolor=thumb, gripcount=0, arrowsize=10, relief=FLAT)
             style.map(name, background=states, lightcolor=states, darkcolor=states)
 
     def AutoHide(self, scrollbar, first, last):
-        # Hide the scrollbar when image is visible in that direction
         needed = float(first) > 0.0 or float(last) < 1.0
-        shown = scrollbar.winfo_manager() == "grid"            # "" after grid_remove()
+        shown = scrollbar.winfo_manager() == "grid"         
         if needed != shown:
             if needed:
                 scrollbar.grid()
@@ -58,14 +52,10 @@ class EditorCanvas(Frame):
                 scrollbar.grid_remove()
         scrollbar.set(first, last)
 
-    # ---------------- Drag to move the image ----------------
 
     def SetupPanning(self):
-        # right or middle mouse button: always drags the image
-        # left mouse button: drags the image only when no tool panel is using the canvas
-        #   (crop / draw / eraser panels use the left button themselves)
         self.panning = False
-        self.canvas.bindtags(("Pan",) + self.canvas.bindtags())   # our own tag, panels can't overwrite it
+        self.canvas.bindtags(("Pan",) + self.canvas.bindtags())
         for button in (1, 2, 3):
             self.canvas.bind_class("Pan", f"<ButtonPress-{button}>", lambda e, b=button: self.StartPan(e, b))
             self.canvas.bind_class("Pan", f"<B{button}-Motion>", self.DoPan)
@@ -75,8 +65,7 @@ class EditorCanvas(Frame):
         if self.App.editor.active_image is None:
             return False
         if button == 1 and self.canvas.bind("<ButtonPress-1>"):
-            return False          # a panel (crop, draw, ...) is using the left button
-        # only when the image is bigger than the canvas
+            return False         
         x0, x1 = self.canvas.xview()
         y0, y1 = self.canvas.yview()
         return x0 > 0 or x1 < 1 or y0 > 0 or y1 < 1
@@ -94,5 +83,4 @@ class EditorCanvas(Frame):
     def EndPan(self, event):
         if self.panning:
             self.panning = False
-            # back to the panel's cursor (crosshair for draw / crop) or normal
             self.canvas.config(cursor="crosshair" if self.canvas.bind("<ButtonPress-1>") else "")

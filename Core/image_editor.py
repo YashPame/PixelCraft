@@ -7,15 +7,12 @@ from PIL import Image, ImageEnhance, ImageFilter, ImageOps, ImageTk
 
 from Core.image_document import ImageDocument
 
-# Order in which adjustments are applied (always the same, whatever the slider order)
 ADJUSTMENT_ORDER = ["Auto Enhance", "Exposure", "Brightness", "Contrast", "Highlights", "Shadows",
                     "Saturation", "Warmth", "Tint", "Sharpness", "Vignette"]
 
-# Sliders that are a simple PIL "enhance" (factor 0 = none, 1 = original, 2 = double)
 ENHANCERS = {"Brightness": ImageEnhance.Brightness, "Contrast": ImageEnhance.Contrast,
              "Saturation": ImageEnhance.Color, "Sharpness": ImageEnhance.Sharpness}
 
-# Everything saved for Undo / Redo 
 STATE_FIELDS = ["base_image", "adjustments", "straighten_source", "straighten_angle",
                 "filter_name", "drawing_layer", "drawing_source", "cutout"]
 
@@ -25,16 +22,14 @@ MAX_HISTORY = 10
 MAX_ZOOM = 10.0
 MIN_ZOOM = 0.20
 ZOOM_STEP = 0.05
-FIT_MARGIN = 4      # small gap so a fitted image never shows scrollbars
+FIT_MARGIN = 4     
 
 
 def Copy(value):
-    # copy images and dicts, keep numbers / strings / None as they are
     return value.copy() if hasattr(value, "copy") else value
 
 
 def ToRGB(img):
-    # OpenCV image (gray / BGR / BGRA) -> RGB or RGBA
     if img.ndim == 2:
         return cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
     if img.shape[2] == 4:
@@ -50,11 +45,9 @@ class Editor:
         self.canvas_image_id = None
         self.state_before_adjust = None
 
-        # where the image is drawn on the canvas (used by crop box and drawing)
         self.image_x = self.image_y = 0
         self.display_width = self.display_height = 0
 
-    # ---------------- Open / Show / Close ----------------
 
     def OpenImage(self):
         file_path = filedialog.askopenfilename(title="Open Image", filetypes=[("Image Files", "*.jpg *.jpeg *.png")])
@@ -67,16 +60,15 @@ class Editor:
             messagebox.showerror("Error", "Something Went Wrong, Unable to open File...")
             return None
 
-        image.cutout = None            # subject with transparent background (set by RemoveBackground)
+        image.cutout = None          
         self.active_image = image
-        self.App.hasImage.set(True)    # show the canvas first, so its real size can be measured
+        self.App.hasImage.set(True)    
         self.SetInitialZoom()
         self.SyncSliders()
         self.ShowImage()
         return image
 
     def ShowImage(self, original=False):
-        # original=True shows the untouched photo (Before/After button)
         doc = self.active_image
         if doc is None:
             return
@@ -86,42 +78,36 @@ class Editor:
 
         zoom = doc.zoom.get()
         if original and image.shape[:2] != doc.image.shape[:2]:
-            zoom = self.FitZoom(image)        # cropped / rotated since: fit the original on its own
+            zoom = self.FitZoom(image)        
         if zoom != 1.0:
             pil_image = pil_image.resize((int(pil_image.width * zoom), int(pil_image.height * zoom)))
 
         photo = ImageTk.PhotoImage(pil_image)
 
-        # measure the canvas while the OLD picture is still showing (no empty frame on screen)
         self.canvas.update_idletasks()
         canvas_w, canvas_h = self.canvas.winfo_width(), self.canvas.winfo_height()
         w, h = pil_image.width, pil_image.height
 
-        # center the image, remember where it is
         self.image_x = max((canvas_w - w) // 2, 0)
         self.image_y = max((canvas_h - h) // 2, 0)
         self.display_width, self.display_height = w, h
 
-        # swap the picture inside the SAME canvas item instead of deleting and re-creating it
-        # (deleting first showed an empty canvas for a moment = flicker while sliding)
         if self.canvas_image_id is not None and self.canvas.type(self.canvas_image_id) == "image":
             self.canvas.itemconfig(self.canvas_image_id, image=photo)
             self.canvas.coords(self.canvas_image_id, self.image_x, self.image_y)
         else:
             self.canvas_image_id = self.canvas.create_image(self.image_x, self.image_y, anchor="nw", image=photo)
-            self.canvas.tag_lower(self.canvas_image_id)          # crop box / masks stay on top
-        doc.photo_image = photo      # keep it alive (only now, so the old one is never missing)
+            self.canvas.tag_lower(self.canvas_image_id)
+        doc.photo_image = photo
 
         self.canvas.configure(scrollregion=(0, 0, max(canvas_w, self.image_x + w), max(canvas_h, self.image_y + h)))
 
         if original:
-            # no crop box / masks on top of the "before" photo (they come back on release)
             for item in self.canvas.find_all():
                 if item != self.canvas_image_id:
                     self.canvas.delete(item)
             return
 
-        # open panels draw their marks again on top of the image (crop box, eraser mask, ...)
         if self.GetPanel("crop_panel"):
             self.App.crop_panel.DrawCropBox()
         if self.GetPanel("eraser_panel"):
@@ -130,11 +116,10 @@ class Editor:
             self.App.bg_panel.DrawBox()
 
     def CloseImage(self):
-        # Discard the image and go back to the "Open Image" screen
         self.active_image = None
         self.canvas.delete("all")
         self.canvas_image_id = None
-        self.App.hasImage.set(False)   # ActionBar and App update themselves from this
+        self.App.hasImage.set(False)   
 
     # ---------------- Zoom / Reset ----------------
 
@@ -143,10 +128,9 @@ class Editor:
         self.active_image.zoom_percentage.set(f"{round(zoom * 100, 2)}%")
 
     def FitZoom(self, image):
-        # zoom that fits the whole image inside the canvas (big images shrink, small ones grow)
         self.canvas.update_idletasks()
         canvas_w, canvas_h = self.canvas.winfo_width(), self.canvas.winfo_height()
-        if canvas_w < 50 or canvas_h < 50:                 # canvas not on screen yet
+        if canvas_w < 50 or canvas_h < 50:                 
             canvas_w, canvas_h = CANVAS_WIDTH, CANVAS_HEIGHT
 
         h, w = image.shape[:2]
@@ -158,14 +142,12 @@ class Editor:
         self.SetZoom(zoom)
 
     def FitToScreen(self):
-        # "Fit" button / Ctrl+0
         if self.active_image is None:
             return
         self.SetInitialZoom()
         self.ShowImage()
 
     def ShowOriginal(self, show):
-        # Before/After button: show=True while the button is held down
         if self.active_image is not None:
             self.ShowImage(original=show)
 
@@ -210,7 +192,7 @@ class Editor:
             setattr(doc, name, state[name])
         self.RenderImage()
         if doc.base_image.shape[:2] != old_size:
-            self.SetInitialZoom()   # undo / redo of a crop or rotate: fit the new size
+            self.SetInitialZoom()   
         self.SyncSliders()
         self.ShowImage()
 
@@ -225,7 +207,6 @@ class Editor:
         self.PushUndo(self.GetState())
 
     def UndoRedo(self, from_stack, to_stack):
-        # take the last state from one stack, save the current one on the other
         if self.active_image is None or not from_stack:
             return
         to_stack.append(self.GetState())
@@ -240,12 +221,10 @@ class Editor:
             self.UndoRedo(self.active_image.redo_stack, self.active_image.undo_stack)
 
     def StartAdjust(self):
-        # remember how the image looked before a slider drag started
         if self.active_image is not None:
             self.state_before_adjust = self.GetState()
 
     def EndAdjust(self):
-        # after the drag: add ONE undo entry, but only if something changed
         before = self.state_before_adjust
         if self.active_image is None or before is None:
             return
@@ -257,12 +236,10 @@ class Editor:
     # ---------------- Panels ----------------
 
     def GetPanel(self, name):
-        # the panel if it is open, else None
         panel = getattr(self.App, name, None)
         return panel if panel is not None and panel.winfo_exists() else None
 
     def SyncSliders(self):
-        # Move the sliders in the open panel to match the current image
         doc = self.active_image
         if doc is None:
             return
@@ -276,8 +253,6 @@ class Editor:
     # ---------------- Rotate / Flip / Crop / Straighten ----------------
 
     def Transform(self, func, refit=False, layer_func=None, cutout_func=None):
-        # apply a change to the photo, and the same change (or layer_func / cutout_func)
-        # to the drawing layer and to the cut-out subject, so they always line up
         doc = self.active_image
         self.SaveState()
         doc.base_image = func(doc.base_image)
@@ -288,7 +263,7 @@ class Editor:
         self.ClearStraighten()
         self.RenderImage()
         if refit:
-            self.SetInitialZoom()   # fit the new size in the canvas
+            self.SetInitialZoom()   
         self.ShowImage()
 
     def Rotate90(self, clockwise=True):
@@ -300,11 +275,9 @@ class Editor:
     def Flip(self, horizontal=True):
         if self.active_image is None:
             return
-        # 1 = flip left/right, 0 = flip up/down
         self.Transform(lambda img: cv2.flip(img, 1 if horizontal else 0))
 
     def Crop(self, left, top, right, bottom):
-        # left/top/right/bottom are fractions of the image (0 to 1)
         if self.active_image is None:
             return
         h, w = self.active_image.base_image.shape[:2]
@@ -314,7 +287,6 @@ class Editor:
         self.Transform(lambda img: img[y1:y2, x1:x2].copy(), refit=True)
 
     def Straighten(self, angle):
-        # Always rotates from the image before straightening, so 10° then 5° gives 5°, not 15°
         doc = self.active_image
         if doc is None or angle == doc.straighten_angle:
             return
@@ -322,7 +294,7 @@ class Editor:
         if doc.straighten_source is None:
             doc.straighten_source = doc.base_image.copy()
             doc.drawing_source = Copy(doc.drawing_layer)
-            doc.cutout = None      # straightened photo no longer matches the cut-out subject
+            doc.cutout = None      
 
         doc.straighten_angle = angle
         doc.base_image = self.RotateAndFill(doc.straighten_source, angle)
@@ -333,7 +305,6 @@ class Editor:
         self.ShowImage()
 
     def RotateAndFill(self, img, angle, fill_edges=True):
-        # Rotate by any angle and zoom in just enough so no empty corners show
         if angle == 0:
             return img.copy()
 
@@ -341,15 +312,12 @@ class Editor:
         a = math.radians(abs(angle))
         scale = max(math.cos(a) + (h / w) * math.sin(a), math.cos(a) + (w / h) * math.sin(a))
 
-        # the drawing layer uses transparent edges instead of repeated pixels
         border = cv2.BORDER_REPLICATE if fill_edges else cv2.BORDER_CONSTANT
 
-        # OpenCV uses positive = anticlockwise, so -angle makes positive = clockwise
         matrix = cv2.getRotationMatrix2D((w / 2, h / 2), -angle, scale)
         return cv2.warpAffine(img, matrix, (w, h), flags=cv2.INTER_LINEAR, borderMode=border, borderValue=0)
 
     def ClearStraighten(self):
-        # After rotate/flip/crop/draw the straighten angle becomes part of the image
         doc = self.active_image
         doc.straighten_source = doc.drawing_source = None
         doc.straighten_angle = 0
@@ -358,7 +326,6 @@ class Editor:
     # ---------------- Magic Eraser / Background Remover (OpenCV) ----------------
 
     def MagicErase(self, mask, radius=5):
-        # mask: white where the user painted (same size as the image). Fills it from the surroundings.
         doc = self.active_image
         if doc is None or mask is None or not mask.any():
             return
@@ -368,13 +335,11 @@ class Editor:
         def inpaint(img):
             if img.ndim == 2 or img.shape[2] == 3:
                 return cv2.inpaint(img, mask, radius, cv2.INPAINT_TELEA)
-            # transparent PNG: fill the color and the transparency separately
             color = cv2.inpaint(np.ascontiguousarray(img[:, :, :3]), mask, radius, cv2.INPAINT_TELEA)
             alpha = cv2.inpaint(np.ascontiguousarray(img[:, :, 3]), mask, radius, cv2.INPAINT_TELEA)
             return np.dstack([color, alpha])
 
         def clear_drawing(layer):
-            # pen strokes under the mask are removed too
             layer = layer.copy()
             layer[mask > 0, 3] = 0
             return layer
@@ -382,7 +347,6 @@ class Editor:
         self.Transform(inpaint, layer_func=clear_drawing)
 
     def RemoveBackground(self, left, top, right, bottom, iterations=5):
-        # box (fractions 0-1) around the subject -> everything outside the subject becomes transparent
         doc = self.active_image
         if doc is None:
             return False
@@ -393,13 +357,11 @@ class Editor:
         if x2 - x1 < 10 or y2 - y1 < 10:
             return False
 
-        # GrabCut needs a BGR image
         if img.ndim == 2:
             bgr = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
         else:
             bgr = np.ascontiguousarray(img[:, :, :3])
 
-        # work on a smaller copy (GrabCut is slow on big photos), max 600 px
         scale = min(1.0, 600 / max(h, w))
         small = cv2.resize(bgr, (max(1, int(w * scale)), max(1, int(h * scale))), interpolation=cv2.INTER_AREA)
         rect = (int(x1 * scale), int(y1 * scale), max(1, int((x2 - x1) * scale)), max(1, int((y2 - y1) * scale)))
@@ -412,12 +374,10 @@ class Editor:
         except cv2.error:
             return False
 
-        # subject = "sure" + "probably" foreground
         subject = np.where((gc_mask == cv2.GC_FGD) | (gc_mask == cv2.GC_PR_FGD), 255, 0).astype(np.uint8)
         if not subject.any():
             return False
 
-        # back to full size, with slightly soft edges
         alpha = cv2.resize(subject, (w, h), interpolation=cv2.INTER_LINEAR)
         alpha = cv2.GaussianBlur(alpha, (5, 5), 0)
 
@@ -431,11 +391,6 @@ class Editor:
         return True
 
     def SetBackground(self, mode, color_bgr=None, image_path=None):
-        # Put something behind the cut-out subject:
-        #   "none"  -> transparent again       "color" -> one solid color
-        #   "blur"  -> the original photo, blurred (portrait look)
-        #   "image" -> another photo, filling the whole frame
-        # Always starts from the cut-out, so you can switch backgrounds as often as you like.
         doc = self.active_image
         if doc is None or doc.cutout is None or doc.cutout.shape[:2] != doc.base_image.shape[:2]:
             return False
@@ -449,15 +404,12 @@ class Editor:
             if mode == "color":
                 background = np.full((h, w, 3), color_bgr, np.uint8)
             elif mode == "blur":
-                # cut-out keeps the original colors everywhere, only the transparency changed
                 strength = max(15, (max(h, w) // 40) | 1)            # odd size, bigger photo = more blur
                 background = cv2.GaussianBlur(np.ascontiguousarray(cutout[:, :, :3]), (strength, strength), 0)
             elif mode == "image":
-                # np.fromfile + imdecode also works with Hindi / non-English folder names on Windows
                 background = cv2.imdecode(np.fromfile(image_path, np.uint8), cv2.IMREAD_COLOR)
                 if background is None:
                     return False
-                # "cover": scale so it fills the frame, then cut off what sticks out (centered)
                 bh, bw = background.shape[:2]
                 scale = max(w / bw, h / bh)
                 background = cv2.resize(background, (max(w, round(bw * scale)), max(h, round(bh * scale))),
@@ -467,7 +419,7 @@ class Editor:
             else:
                 return False
 
-            alpha = cutout[:, :, 3:4].astype(np.float32) / 255     # 1 = subject, 0 = background
+            alpha = cutout[:, :, 3:4].astype(np.float32) / 255     
             result = (cutout[:, :, :3] * alpha + background * (1 - alpha)).astype(np.uint8)
 
         self.Transform(lambda img: result, layer_func=lambda layer: layer, cutout_func=lambda c: c)
@@ -476,12 +428,10 @@ class Editor:
     # ---------------- Light / Color adjustments ----------------
 
     def ApplyCurve(self, pil_img, func):
-        # lookup table (old value 0-255 -> new value) applied to every channel
         table = [int(min(255, max(0, func(x)))) for x in range(256)]
         return pil_img.point(table * len(pil_img.getbands()))
 
     def ShiftChannels(self, pil_img, r=0, g=0, b=0):
-        # add / remove some red, green or blue
         channels = list(pil_img.split())
         for i, amount in enumerate((r, g, b)):
             if amount:
@@ -489,9 +439,7 @@ class Editor:
         return Image.merge("RGB", channels)
 
     def LightAdjustment(self, pil_img, parameter, value):
-        # pil_img is an RGB PIL image, value is between -100 and 100
         if parameter in ENHANCERS:
-            # -100 -> 0.0, 0 -> 1.0 (no change), +100 -> 2.0
             return ENHANCERS[parameter](pil_img).enhance(1 + value / 100)
 
         if parameter == "Exposure":
@@ -532,9 +480,9 @@ class Editor:
         if self.active_image is None:
             return
 
-        values = {k: v for k, v in values.items() if v != 0}   # keep only sliders that are not 0
+        values = {k: v for k, v in values.items() if v != 0}   
         if values == self.active_image.adjustments:
-            return                                              # nothing changed
+            return                                             
 
         if save_state:
             self.SaveState()
@@ -550,11 +498,9 @@ class Editor:
         doc.modified = True
 
     def ProcessImage(self, img, adjustments, filter_name):
-        # Works on any size image: used for the real image AND the filter previews
         if not adjustments and filter_name == "Original":
             return img.copy()
 
-        # grayscale and transparent (PNG) images
         alpha = None
         if img.ndim == 2:
             img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
@@ -563,10 +509,10 @@ class Editor:
 
         pil_img = Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
 
-        for parameter in ADJUSTMENT_ORDER:                       # 1. sliders
+        for parameter in ADJUSTMENT_ORDER:                       
             if parameter in adjustments:
                 pil_img = self.LightAdjustment(pil_img, parameter, adjustments[parameter])
-        pil_img = self.ApplyFilter(pil_img, filter_name)         # 2. filter
+        pil_img = self.ApplyFilter(pil_img, filter_name)         
 
         result = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
         return result if alpha is None else np.dstack([result, alpha])
@@ -574,7 +520,6 @@ class Editor:
     # ---------------- Filters ----------------
 
     def SetFilter(self, filter_name):
-        # Called when a filter preview is clicked
         if self.active_image is None or filter_name == self.active_image.filter_name:
             return
         self.SaveState()
@@ -583,7 +528,6 @@ class Editor:
         self.ShowImage()
 
     def ApplyFilter(self, pil_img, name):
-        # pil_img is an RGB PIL image, "Original" -> no change
         if name in ("Grayscale", "Sepia", "Vintage", "Noir", "Sketch"):
             gray = ImageOps.grayscale(pil_img)
 
@@ -633,27 +577,24 @@ class Editor:
         return result
 
     def AddStroke(self, points, color_bgr, size, opacity, erase=False):
-        # points: list of (x, y) in IMAGE pixels, size: brush size in IMAGE pixels
         doc = self.active_image
         if doc is None or not points or (erase and doc.drawing_layer is None):
-            return   # no image / no stroke / nothing to erase
+            return   
 
-        # only work on the small area around the stroke (much faster on big photos)
         h, w = doc.base_image.shape[:2]
         pad = size // 2 + 2
         xs, ys = [p[0] for p in points], [p[1] for p in points]
         x0, y0 = max(0, min(xs) - pad), max(0, min(ys) - pad)
         x1, y1 = min(w, max(xs) + pad + 1), min(h, max(ys) + pad + 1)
         if x0 >= x1 or y0 >= y1:
-            return   # stroke was completely outside the image
+            return  
 
         self.SaveState()
-        self.ClearStraighten()   # the current angle becomes part of the image
+        self.ClearStraighten()   
 
         if doc.drawing_layer is None:
             doc.drawing_layer = np.zeros((h, w, 4), dtype=np.uint8)
 
-        # 1. draw the stroke shape as white on black (the "mask")
         mask = np.zeros((y1 - y0, x1 - x0), dtype=np.uint8)
         local = np.array([(x - x0, y - y0) for x, y in points], dtype=np.int32)
         if len(local) == 1:
@@ -661,16 +602,15 @@ class Editor:
         else:
             cv2.polylines(mask, [local.reshape(-1, 1, 2)], False, 255, thickness=max(1, size), lineType=cv2.LINE_AA)
 
-        # how strong the stroke is at each pixel (0 to 1)
         strength = (mask.astype(np.float32) / 255 * opacity)[:, :, None]
         region = doc.drawing_layer[y0:y1, x0:x1].astype(np.float32)
         old_alpha = region[:, :, 3:4] / 255
 
         if erase:
-            # 2a. eraser: make the drawing transparent where the stroke is
+            # eraser: make the drawing transparent where the stroke is
             region[:, :, 3:4] = old_alpha * (1 - strength) * 255
         else:
-            # 2b. pen: put the new color "over" the old drawing
+            # pen: put the new color "over" the old drawing
             new_alpha = strength + old_alpha * (1 - strength)
             color = np.array(color_bgr, dtype=np.float32)
             region[:, :, :3] = (color * strength + region[:, :, :3] * old_alpha * (1 - strength)) / np.maximum(new_alpha, 1e-6)

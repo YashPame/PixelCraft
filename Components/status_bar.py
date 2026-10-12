@@ -3,21 +3,18 @@ from tkinter import *
 
 
 class StatusBar(Frame):
-    # Thin bar at the bottom: cursor position, pixel color, image size, zoom, file and save state
     def __init__(self, App):
-        self.t = App.theme                              # colors from main.py
+        self.t = App.theme                              
         t = self.t
         super().__init__(App.root, bg=t["surface"])
         self.App = App
         self.Editor = App.editor
-        self.file_sizes = {}                            # file path -> "2.4 MB" (read from disk once)
+        self.file_sizes = {}                            
 
-        # thin line on top
         Frame(self, bg=t["border"], height=1).pack(side=TOP, fill=X)
         row = Frame(self, bg=t["surface"])
         row.pack(fill=BOTH, expand=True, padx=16)
 
-        # ----- left: what is under the mouse -----
         self.position = self.Item(row, "Cursor", LEFT)
         self.swatch = Frame(row, bg=t["surface"], width=12, height=12,
                             highlightthickness=1, highlightbackground=t["border"])
@@ -25,7 +22,6 @@ class StatusBar(Frame):
         self.color = self.Item(row, "RGB", LEFT, divider=False)
         self.hex = self.Item(row, "HEX", LEFT)
 
-        # ----- right: about the image -----
         self.state = Label(row, text="", font=self.App.adjust_font(9, bold=True), bg=t["surface"])
         self.state.pack(side=RIGHT)
         self.Divider(row, RIGHT)
@@ -33,7 +29,6 @@ class StatusBar(Frame):
         self.size = self.Item(row, "Size", RIGHT)
         self.file = self.Item(row, "File", RIGHT, divider=False)
 
-        # mouse over the image canvas (bind_all also works while a panel is dragging on it)
         self.App.root.bind_all("<Motion>", self.OnMouseMove, add="+")
         self.Editor.canvas.bind("<Leave>", lambda e: self.ClearCursor(), add="+")
 
@@ -41,16 +36,13 @@ class StatusBar(Frame):
         self.Refresh()
 
     def Resize(self, panel_open):
-        # full width normally, stops at the sidebar while a side panel is open
         x, y, w, h = self.App.STATUS
         if panel_open:
             w -= self.App.SIDEBAR[2]
         self.App.place_component(self, x, y, w, h)
 
-    # ---------------- look ----------------
 
     def Item(self, parent, title, side, divider=True):
-        # small grey title + value, e.g.  "Size  4000 × 3000 px"
         t = self.t
         box = Frame(parent, bg=t["surface"])
         Label(box, text=title, font=self.App.adjust_font(9), bg=t["surface"], fg=t["muted"]).pack(side=LEFT, padx=(0, 5))
@@ -70,7 +62,6 @@ class StatusBar(Frame):
     def Divider(self, parent, side):
         Frame(parent, bg=self.t["border"], width=1, height=14).pack(side=side, padx=12)
 
-    # ---------------- under the mouse ----------------
 
     def OnMouseMove(self, event):
         canvas = self.Editor.canvas
@@ -78,7 +69,6 @@ class StatusBar(Frame):
         if event.widget is not canvas or doc is None or self.Editor.display_width == 0:
             return
 
-        # canvas position -> image pixel
         image = doc.image
         h, w = image.shape[:2]
         zoom = self.Editor.display_width / w
@@ -90,10 +80,10 @@ class StatusBar(Frame):
             return
 
         pixel = image[y, x]
-        if image.ndim == 2:                         # grayscale
+        if image.ndim == 2:                         
             r = g = b = int(pixel)
             alpha = None
-        else:                                       # OpenCV stores B, G, R (, A)
+        else:                                       
             b, g, r = (int(v) for v in pixel[:3])
             alpha = int(pixel[3]) if image.shape[2] == 4 else None
 
@@ -109,7 +99,6 @@ class StatusBar(Frame):
         self.hex.config(text="—")
         self.swatch.config(bg=self.t["surface"])
 
-    # ---------------- about the image (checked every half second) ----------------
 
     def FileSize(self, path):
         if path not in self.file_sizes:

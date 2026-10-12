@@ -42,12 +42,12 @@ THEME = {
 
 # ---------------- LAYOUT (in 1536 x 864 design pixels) ----------------
 TOOLBAR_HEIGHT = 80
-STATUS_HEIGHT = 28                        # info bar at the bottom
-CANVAS = (208, 142, 1120, 680)            # x, y, width, height (centered, no panel)
-CANVAS_X_WITH_PANEL = 16                  # canvas moves left when a panel is open
+STATUS_HEIGHT = 28                       
+CANVAS = (208, 142, 1120, 680)            
+CANVAS_X_WITH_PANEL = 16                  
 SIDEBAR_WIDTH = 370
 SIDEBAR = (DEFAULT_WIDTH - SIDEBAR_WIDTH, 50 + TOOLBAR_HEIGHT, SIDEBAR_WIDTH, DEFAULT_HEIGHT - 50 - TOOLBAR_HEIGHT)
-STATUS = (0, DEFAULT_HEIGHT - STATUS_HEIGHT, DEFAULT_WIDTH, STATUS_HEIGHT)   # bottom bar (full width)
+STATUS = (0, DEFAULT_HEIGHT - STATUS_HEIGHT, DEFAULT_WIDTH, STATUS_HEIGHT)   
 
 
 class PhotoEditorApp:
@@ -86,7 +86,6 @@ class PhotoEditorApp:
         self.place_component(self.status_bar, *STATUS)
 
     def ApplyTheme(self):
-        # Default colors for every widget (panels, dialogs, ...) unless a widget sets its own
         t = THEME
         r = self.root
 
@@ -111,7 +110,6 @@ class PhotoEditorApp:
         r.option_add("*Canvas.highlightThickness", 0)
         r.option_add("*Scrollbar.troughColor", t["surface_alt"])
 
-        # ttk widgets (sliders, combo boxes, ...)
         style = ttk.Style(r)
         style.theme_use("clam")
         style.configure(".", background=t["surface"], foreground=t["text"], font=(t["font"], 10))
@@ -127,8 +125,8 @@ class PhotoEditorApp:
         t = THEME
         return Scale(parent, from_=from_, to=to, resolution=resolution, orient=HORIZONTAL,
                      length=self.scale_x(length),
-                     width=max(6, round(8 * self.ratioH)),            # track height (8 px on the design screen)
-                     sliderlength=max(12, round(18 * self.ratioW)),   # handle width (18 px on the design screen)
+                     width=max(6, round(8 * self.ratioH)),           
+                     sliderlength=max(12, round(18 * self.ratioW)),   
                      showvalue=0, bd=0, highlightthickness=0, sliderrelief=FLAT,
                      bg=t["accent"], activebackground=t["accent_hover"], troughcolor=t["trough"],
                      cursor="hand2", **kwargs)
@@ -141,9 +139,6 @@ class PhotoEditorApp:
             self.canvas_frame.place_forget()
 
     def setRatio(self):
-        # how much bigger / smaller this screen is than the 1536 x 864 design
-        # (screen / design: a 1366 px screen gives 0.89 -> everything shrinks to fit,
-        #  a 1920 px screen gives 1.25 -> everything grows to fill the screen)
         screen_width = self.root.winfo_screenwidth()
         screen_height = self.root.winfo_screenheight()
 

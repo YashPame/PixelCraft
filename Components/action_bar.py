@@ -11,33 +11,26 @@ from Components.save_dialog import SaveDialog
 
 class ActionBar(Frame):
     def __init__(self, App):
-        # Default colors / fonts / button look come from main.py (ApplyTheme), so only the
-        # things that are DIFFERENT from those defaults are set in this file.
-        self.t = App.theme                                # colors from main.py
+        self.t = App.theme
         super().__init__(App.root)
 
         self.App = App
         self.Editor = self.App.editor
         self.PanelsFrame = None
-        self.OpenImageFrame = None                       # center "Open Image" box
-        self.zoom_placeholder = StringVar(value="100%")  # zoom text when no image
+        self.OpenImageFrame = None  
+        self.zoom_placeholder = StringVar(value="100%")
 
-        # thin line under the toolbar
         Frame(self, bg=self.t["border"]).place(x=0, rely=1, relwidth=1, height=1, anchor="sw")
 
         self.CreateButtons()
         self.App.hasImage.trace_add("write", self.UpdateButtons)
         self.BindShortcuts()
 
-    # ---------------- styles ----------------
 
     def ToolStyle(self):
-        # icon buttons (tools, zoom, undo, redo)
-        # (light grey bg, light blue when pressed, flat, hand cursor = defaults from main.py)
         return dict(bd=0, highlightthickness=0)
 
     def TextButtonStyle(self, size=11):
-        # text buttons: same as icon buttons + a bold, screen-scaled font
         return dict(font=self.App.adjust_font(size, bold=True), **self.ToolStyle())
 
     def CreateButtons(self):
@@ -48,11 +41,9 @@ class ActionBar(Frame):
         self.CoreTitleButtons = Frame(self)
         self.CoreTitleButtons.place(x=0, y=0, relwidth=1, relheight=1, height=-1)
 
-        # ---------------- top tool buttons (always shown, disabled without an image) ----------------
         tool = self.ToolStyle()
         self.crop_button = Button(self.CoreTitleButtons, image=self.App.IconImage_Crop, state=state, command=lambda: self.TopButtonClicked("Crop"), **tool)
         self.brightness_button = Button(self.CoreTitleButtons, image=self.App.IconImage_Brightenss, state=state, command=lambda: self.TopButtonClicked("Brightness"), **tool)
-        # brush icon opens the Filters panel
         self.filters_button = Button(self.CoreTitleButtons, image=self.App.IconImage_Brush, state=state, command=lambda: self.TopButtonClicked("Filters"), **tool)
         self.pencil_button = Button(self.CoreTitleButtons, image=self.App.IconImage_Pencil, state=state, command=lambda: self.TopButtonClicked("Pencil"), **tool)
         self.eraser_button = Button(self.CoreTitleButtons, image=self.App.IconImage_Eraser, state=state, command=lambda: self.TopButtonClicked("Eraser"), **tool)
@@ -65,7 +56,6 @@ class ActionBar(Frame):
         self.App.place_component(self.eraser_button, 1536/2+65, 15, 50, 50)
         self.App.place_component(self.background_remover_button, 1536/2+125, 15, 50, 50)
 
-        # ---------------- left: zoom / reset / undo / redo ----------------
         left_options_frame = Frame(self.CoreTitleButtons, bg=t["surface_alt"],
                                    highlightthickness=1, highlightbackground=t["border"])
         self.App.place_component(left_options_frame, 30, 15, 410, 50)
@@ -95,11 +85,9 @@ class ActionBar(Frame):
         self.App.place_component(undo_button, 290, 9, 50, 30)
         self.App.place_component(redo_button, 345, 9, 50, 30)
 
-        # ---------------- right: save / cancel ----------------
         right_options_frame = Frame(self.CoreTitleButtons)
         self.App.place_component(right_options_frame, 1536-370, 15, 340, 50)
 
-        # hold down to see the original photo, let go to see your edit
         compare_button = Button(right_options_frame, text="Before / After", state=state,
                                 **self.TextButtonStyle(10))
         compare_button.config(highlightthickness=1, highlightbackground=t["border"])
@@ -119,13 +107,10 @@ class ActionBar(Frame):
         self.App.place_component(save_button, 140, 5, 100, 40)
         self.App.place_component(cancel_button, 250, 5, 85, 40)
 
-        # ---------------- center "Open Image" box (where the canvas will appear) ----------------
         if not has_image:
             self.CreateOpenImagePlaceholder()
 
     def CreateOpenImagePlaceholder(self):
-        # Welcome screen shown where the image will appear: dotted background,
-        # a dashed "open" card in the middle and the app's features listed below it
         t = self.t
         W, H = self.App.scale_x(self.App.CANVAS[2]), self.App.scale_y(self.App.CANVAS[3])
 
@@ -134,13 +119,11 @@ class ActionBar(Frame):
         self.App.place_component(self.OpenImageFrame, *self.App.CANVAS)
         c = self.OpenImageFrame
 
-        # 1. soft dot grid in the background
         gap = self.App.scale_x(26)
         for x in range(gap // 2, W, gap):
             for y in range(gap // 2, H, gap):
                 c.create_oval(x - 1, y - 1, x + 1, y + 1, fill=t["border"], outline="")
 
-        # 2. dashed card in the middle (click anywhere on it to open an image)
         cw, ch = self.App.scale_x(500), self.App.scale_y(290)
         x1, y1 = (W - cw) // 2, (H - ch) // 2 - self.App.scale_y(30)
         c.create_rectangle(x1, y1, x1 + cw, y1 + ch, fill=t["sidebar"], outline=t["accent"],
@@ -156,12 +139,10 @@ class ActionBar(Frame):
         c.create_text(W // 2, y1 + ch * 0.80, text="Click here to choose a JPG or PNG from your computer",
                       font=self.App.adjust_font(11), fill=t["muted"], tags="card")
 
-        # hover: card gets a little darker, click opens the file dialog
         c.tag_bind("card", "<Enter>", lambda e: (c.itemconfig("card_bg", fill=t["accent_light"]), c.config(cursor="hand2")))
         c.tag_bind("card", "<Leave>", lambda e: (c.itemconfig("card_bg", fill=t["sidebar"]), c.config(cursor="")))
         c.tag_bind("card", "<Button-1>", lambda e: self.Editor.OpenImage())
 
-        # 3. what you can do, as small chips under the card
         features = ["Crop & Rotate", "Light & Color", "Filters", "Draw", "Magic Eraser", "Remove Background"]
         chip_y = y1 + ch + self.App.scale_y(55)
         pad_x, pad_y, space = self.App.scale_x(12), self.App.scale_y(6), self.App.scale_x(10)
@@ -183,7 +164,6 @@ class ActionBar(Frame):
             x += width + 2 * pad_x + space
 
     def GetButtons(self):
-        # top buttons by name
         return {
             "Crop": self.crop_button,
             "Brightness": self.brightness_button,
@@ -194,7 +174,6 @@ class ActionBar(Frame):
         }
 
     def ClosePanel(self):
-        # un-highlight the active button, remove the side panel, center the canvas
         current_button = self.App.activeTopButton.get()
 
         if current_button != "None":
@@ -213,7 +192,6 @@ class ActionBar(Frame):
         current_button = self.App.activeTopButton.get()
         buttons = self.GetButtons()
 
-        # clicking the active button again closes its panel
         if current_button == button_name:
             self.ClosePanel()
             return
@@ -228,10 +206,9 @@ class ActionBar(Frame):
 
         self.App.place_configure(self.App.canvas_frame, self.App.CANVAS_X_WITH_PANEL, self.App.CANVAS[1])
 
-        # sidebar on the right edge, a different shade from the background
         self.PanelsFrame = Frame(self.App.root, bg=t["sidebar"], highlightthickness=1, highlightbackground=t["border"])
         self.App.place_component(self.PanelsFrame, *self.App.SIDEBAR)
-        self.App.status_bar.Resize(panel_open=True)     # bottom bar stops where the sidebar starts
+        self.App.status_bar.Resize(panel_open=True)
 
         if button_name == "Crop":
             self.Panel = CropPanel(self.App, self.PanelsFrame)
@@ -267,10 +244,9 @@ class ActionBar(Frame):
             if not answer:
                 return
 
-        self.ClosePanel()          # close the side panel first (it uses the canvas)
-        self.Editor.CloseImage()   # then remove the image -> back to Open Image screen
+        self.ClosePanel()          
+        self.Editor.CloseImage()  
 
-    # ---------------- Keyboard shortcuts / mouse wheel ----------------
 
     def BindShortcuts(self):
         root = self.App.root
@@ -286,14 +262,11 @@ class ActionBar(Frame):
         for key, action in keys.items():
             root.bind_all(key, lambda e, a=action: self.RunShortcut(e, a))
 
-        # mouse wheel over the image zooms (with or without Ctrl).
-        # bind_all because Windows sends wheel events to the focused widget, not the one under the mouse
-        for seq in ("<MouseWheel>", "<Control-MouseWheel>",                                        # Windows / Mac
-                    "<Button-4>", "<Button-5>", "<Control-Button-4>", "<Control-Button-5>"):   # Linux
+        for seq in ("<MouseWheel>", "<Control-MouseWheel>",                                        
+                    "<Button-4>", "<Button-5>", "<Control-Button-4>", "<Control-Button-5>"):   
             root.bind_all(seq, self.OnMouseWheel)
 
     def OnMouseWheel(self, event):
-        # only zoom when the mouse is over the image canvas (not over a panel or dialog)
         canvas = self.Editor.canvas
         try:
             under_mouse = canvas.winfo_containing(event.x_root, event.y_root)
@@ -309,7 +282,6 @@ class ActionBar(Frame):
         return "break"
 
     def RunShortcut(self, event, action):
-        # ignore keys while typing in a box or when another window (like Save) is in front
         widget = event.widget
         if isinstance(widget, str) or isinstance(widget, (Entry, ttk.Entry)):
             return
@@ -319,12 +291,10 @@ class ActionBar(Frame):
         return "break"
 
     def OpenShortcut(self):
-        # Ctrl+O works on the welcome screen (same as the Open Image card)
         if self.Editor.active_image is None:
             self.Editor.OpenImage()
 
     def UpdateButtons(self, *args):
-        # rebuild the toolbar whenever hasImage changes
         self.CoreTitleButtons.destroy()
         if self.OpenImageFrame:
             self.OpenImageFrame.destroy()
